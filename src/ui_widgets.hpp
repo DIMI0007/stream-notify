@@ -169,3 +169,35 @@ protected:
     }
 private:int state_;
 };
+
+class ActivityBadge final : public QWidget {
+public:
+    ActivityBadge(const QString& title,bool active,QWidget* parent=nullptr):QWidget(parent),title_(title),active_(active) {
+        setFixedHeight(25);setSizePolicy(QSizePolicy::Fixed,QSizePolicy::Fixed);
+        setAccessibleName(title);
+    }
+    QSize sizeHint() const override {
+        QFont f=font();f.setPixelSize(11);f.setWeight(QFont::DemiBold);
+        return QSize(QFontMetrics(f).horizontalAdvance(title_)+31,25);
+    }
+    QSize minimumSizeHint() const override {return sizeHint();}
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
+        QLinearGradient fill(0,0,0,height());
+        fill.setColorAt(0,active_?QColor("#10382d"):QColor("#202936"));
+        fill.setColorAt(1,active_?QColor("#09221d"):QColor("#151e29"));
+        p.setBrush(fill);p.setPen(QPen(active_?QColor("#237b59"):QColor("#405065"),1));
+        p.drawRoundedRect(QRectF(0.5,0.5,width()-1,height()-1),12,12);
+        const QColor dot=active_?QColor("#00e895"):QColor("#8b9ab1");
+        QColor glow=dot;glow.setAlpha(70);
+        QRadialGradient halo(QPointF(12,height()/2.0),7);
+        halo.setColorAt(0,glow);halo.setColorAt(1,Qt::transparent);
+        p.setPen(Qt::NoPen);p.setBrush(halo);p.drawEllipse(QPointF(12,height()/2.0),7,7);
+        p.setBrush(dot);p.drawEllipse(QPointF(12,height()/2.0),3.2,3.2);
+        QFont f=font();f.setPixelSize(11);f.setWeight(QFont::DemiBold);p.setFont(f);
+        p.setPen(active_?QColor("#b7f4d8"):QColor("#b7c1d4"));
+        p.drawText(QRect(23,0,width()-28,height()),Qt::AlignVCenter|Qt::AlignLeft,title_);
+    }
+private:QString title_;bool active_;
+};

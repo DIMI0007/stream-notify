@@ -288,12 +288,12 @@ void StreamDock::rebuildNow()
     auto* t = label("Stream Notify", "Title");
     title_ = t;
     h->addWidget(t, 1);
-    if (store_.current.showStatus) {
-        auto* status=label(store_.current.enabled ? uiText("● Активен","● Active") : uiText("○ Выключен","○ Disabled"));
-        status->setWordWrap(false);
-        status->setStyleSheet(store_.current.enabled
-            ? "color:#00df8c;background:#072a21;border:1px solid #076944;border-radius:9px;padding:2px 5px;font-size:11px;"
-            : "color:#9baccc;background:#19212d;border:1px solid #3b4659;border-radius:9px;padding:2px 5px;font-size:11px;");
+    if(store_.current.showStatus) {
+        auto* status=new ActivityBadge(store_.current.enabled?uiText("Активен","Active"):uiText("Выключен","Disabled"),store_.current.enabled);
+        status->setToolTip(store_.current.enabled
+            ? uiText("Автоанонсы включены. Подключения Telegram и Discord настраиваются отдельно.",
+                     "Automatic announcements are enabled. Telegram and Discord connections are configured separately.")
+            : uiText("Автоанонсы выключены","Automatic announcements are disabled"));
         h->addWidget(status);
     }
     root_->addWidget(header);
