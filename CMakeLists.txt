@@ -97,6 +97,6 @@ get_target_property(_obs_includes OBS::libobs INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(_frontend_includes OBS::obs-frontend-api INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(stream-notify-ui-preview PRIVATE src ${_obs_includes} ${_frontend_includes})
 target_link_libraries(stream-notify-ui-preview PRIVATE
-  Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::WebSockets crypt32)
+  Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::WebSockets crypt32 SIMDe::SIMDe)
 target_compile_definitions(stream-notify-ui-preview PRIVATE QT_NO_KEYWORDS WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(stream-notify-ui-preview PRIVATE /utf-8 "/FI${CMAKE_CURRENT_SOURCE_DIR}/tests/preview_glue.hpp")
