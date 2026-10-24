@@ -45,8 +45,9 @@ if(NOT Qt6WebSockets_FOUND)
   execute_process(COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}/qtwebsockets-build"
     --config Release COMMAND_ERROR_IS_FATAL ANY)
   list(PREPEND CMAKE_PREFIX_PATH "${_ws_prefix}")
+  set(Qt6WebSockets_DIR "${_ws_prefix}/lib/cmake/Qt6WebSockets" CACHE PATH "" FORCE)
 endif()
-find_package(Qt6 REQUIRED COMPONENTS WebSockets)
+find_package(Qt6WebSockets 6.8.3 EXACT REQUIRED)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
   src/plugin.cpp
