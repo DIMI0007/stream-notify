@@ -32,25 +32,26 @@
 
 namespace {
 const char* css = R"(
+QWidget { font-size: 12px; }
 QWidget#StreamRoot { background: #0b1320; color: #dfe8ff; }
-QWidget#Card { background: #131f31; border: 1px solid #283750; border-radius: 12px; }
+QWidget#Card { background: #131f31; border: 1px solid #283750; border-radius: 8px; }
 QLabel { color: #dfe8ff; background: transparent; }
 QLabel#Hint { color: #9baccc; }
-QLabel#Title { font-weight: 750; font-size: 21px; }
-QLabel#Section { color: #d6e5fa; font-size: 15px; font-weight: 700; }
+QLabel#Title { font-weight: 750; font-size: 17px; }
+QLabel#Section { color: #d6e5fa; font-size: 13px; font-weight: 700; }
 QLabel#Good { color: #07df91; font-weight: 700; }
 QLabel#Bad { color: #ff8484; font-weight: 700; }
 QLabel#Count { color: #59dfff; font-weight: 750; font-size: 57px; }
-QPushButton { color: #e1ebff; background: #22334c; border: 1px solid #445674; border-radius: 8px; min-height: 26px; padding: 5px 11px; }
+QPushButton { color: #e1ebff; background: #22334c; border: 1px solid #445674; border-radius: 8px; min-height: 20px; padding: 3px 7px; }
 QPushButton:hover { background: #2f4565; }
 QPushButton#ActiveNav { background: #203966; border-color: #4969f2; font-weight: 700; }
-QPushButton#Cancel { background: #16395b; border-color: #40b7ff; font-weight: 700; min-height: 42px; }
-QLineEdit,QTextEdit,QComboBox { color: #e7eeff; background: #101a2b; border: 1px solid #344865; border-radius: 6px; padding: 7px; selection-background-color: #316ac4; }
+QPushButton#Cancel { background: #16395b; border-color: #40b7ff; font-weight: 700; min-height: 28px; }
+QLineEdit,QTextEdit,QComboBox { color: #e7eeff; background: #101a2b; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
 QComboBox QAbstractItemView { background: #101a2b; color: #e7eeff; }
-QCheckBox { color: #dce7fb; spacing: 10px; min-height: 24px; }
-QCheckBox::indicator { width: 21px; height: 21px; }
-QCheckBox::indicator:unchecked { border-radius: 11px; background: #344357; border: 1px solid #65748d; }
-QCheckBox::indicator:checked { border-radius: 11px; background: #00d37d; border: 1px solid #2ff9a0; }
+QCheckBox { color: #dce7fb; spacing: 6px; min-height: 20px; }
+QCheckBox::indicator { width: 16px; height: 16px; }
+QCheckBox::indicator:unchecked { border-radius: 4px; background: #344357; border: 1px solid #65748d; }
+QCheckBox::indicator:checked { border-radius: 4px; background: #00d37d; border: 1px solid #2ff9a0; }
 QScrollArea { border: 0; background: transparent; }
 QScrollBar:vertical { border: none; background: #101929; width: 9px; }
 QScrollBar::handle:vertical { background: #384d6c; border-radius: 4px; }
@@ -59,14 +60,15 @@ QScrollBar::handle:vertical { background: #384d6c; border-radius: 4px; }
 QVBoxLayout* column(QWidget* w, int gap = 9, int padding = 12)
 {
     auto* v = new QVBoxLayout(w);
-    v->setSpacing(gap);
-    v->setContentsMargins(padding,padding,padding,padding);
+    v->setSpacing(std::min(gap,5));
+    const int inset=std::min(padding,8);
+    v->setContentsMargins(inset,inset,inset,inset);
     return v;
 }
 void rowWith(QVBoxLayout* v, QWidget* first, QWidget* last)
 {
     auto* h = new QHBoxLayout();
-    h->setSpacing(7);
+    h->setSpacing(4);
     h->addWidget(first, 1);
     if(last) h->addWidget(last);
     v->addLayout(h);
@@ -75,6 +77,12 @@ QPushButton* btn(const QString& text, QWidget* parent = nullptr)
 {
     auto* p = new QPushButton(text, parent);
     p->setCursor(Qt::PointingHandCursor);
+    if(text==QString::fromUtf8("Показать") || text=="Show") {
+        p->setText(QString::fromUtf8("◉"));
+        p->setFixedWidth(28);
+        p->setToolTip(text);
+        p->setAccessibleName(text);
+    }
     return p;
 }
 QLabel* paragraph(const QString& text, QWidget* parent = nullptr)
@@ -89,7 +97,7 @@ QLabel* paragraph(const QString& text, QWidget* parent = nullptr)
 class CreditFooter final : public QWidget {
 public:
     explicit CreditFooter(QWidget* parent=nullptr):QWidget(parent) {
-        setFixedHeight(26);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);
+        setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);
         setAccessibleName("Developed by OTMOPOZOK — YouTube");
         setToolTip("https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/");
     }
@@ -147,7 +155,7 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     connect(&countdown_, &QTimer::timeout, this, &StreamDock::updateCountdown);
     resultTimer_.setSingleShot(true);
     connect(&resultTimer_, &QTimer::timeout, this, [this] { showPhase(Phase::Idle); });
-    root_ = column(this, 9, 9);
+    root_ = column(this, 4, 5);
     donationConfigure_.setSingleShot(true);
     donationConfigure_.setInterval(1400);
     connect(&donationConfigure_, &QTimer::timeout, &donation_, &DonationEngine::configure);
@@ -185,7 +193,7 @@ QWidget* StreamDock::card(QVBoxLayout** l)
 {
     QWidget* w = new QWidget;
     w->setObjectName("Card");
-    *l = column(w, store_.current.compact ? 5 : 9, store_.current.compact ? 7 : 12);
+    *l = column(w, store_.current.compact ? 3 : 5, store_.current.compact ? 5 : 8);
     return w;
 }
 void StreamDock::changeSettings() { store_.scheduleSave(); donationConfigure_.start(); }
@@ -193,7 +201,7 @@ void StreamDock::showPage(Page page) { page_ = page; rebuild(); }
 void StreamDock::showPhase(Phase phase) { phase_ = phase; rebuild(); }
 void StreamDock::updateSaved(bool success)
 {
-    if(saveLabel_) saveLabel_->setText(success ? uiText("✓ Сохранено автоматически", "✓ Saved automatically")
+    if(saveLabel_) saveLabel_->setText(success ? uiText("✓ Сохранено", "✓ Saved")
                                               : uiText("⚠ Ошибка сохранения", "⚠ Save failed"));
 }
 
@@ -205,14 +213,14 @@ void StreamDock::rebuild()
         if (QWidget* w = item->widget()) delete w;
         delete item;
     }
-    root_->setSpacing(store_.current.compact ? 4 : 9);
+    root_->setSpacing(store_.current.compact ? 3 : 5);
     title_ = nullptr;
     saveLabel_ = nullptr;
     daStatusLabel_ = nullptr; dpStatusLabel_ = nullptr; donationJournalLabel_ = nullptr;
     central_ = nullptr;
     auto* header = new QWidget;
     auto* h = new QHBoxLayout(header);
-    h->setContentsMargins(5,4,5,4);
+    h->setContentsMargins(2,2,2,2);
     auto* t = label("◉ Stream Notify", "Title");
     title_ = t;
     h->addWidget(t, 1);
@@ -234,7 +242,7 @@ void StreamDock::rebuild()
     }
     root_->addWidget(central_, 1);
     if (phase_ == Phase::Idle) {
-        saveLabel_ = label(uiText("Изменения сохраняются автоматически", "Changes are saved automatically"), "Hint");
+        saveLabel_ = label(uiText("Автосохранение", "Autosave"), "Hint");
         saveLabel_->setAlignment(Qt::AlignCenter);
         root_->addWidget(saveLabel_);
     }
@@ -248,6 +256,7 @@ QWidget* StreamDock::buildRegular()
     auto* tabs = new QWidget;
     auto* nav = new QHBoxLayout(tabs);
     nav->setContentsMargins(0,0,0,0);
+    nav->setSpacing(4);
     auto* home = btn(uiText("⌂  Основное", "⌂  Home"));
     auto* settings = btn(uiText("⚙ Настройки", "⚙ Settings"));
     home->setObjectName(page_ == Page::Home ? "ActiveNav" : "");
@@ -257,23 +266,16 @@ QWidget* StreamDock::buildRegular()
     nav->addWidget(home); nav->addWidget(settings);
     vertical->addWidget(tabs);
     if (page_ != Page::Home) {
-        auto* sub = new QWidget;
-        auto* subnav = new QGridLayout(sub);
-        subnav->setContentsMargins(0,0,0,0);
-        const struct {Page page; QString name;} pages[] = {
-            {Page::Connections, uiText("Связь", "Connect")},
-            {Page::Message, uiText("Сообщение", "Message")},
-            {Page::Interface, uiText("Интерфейс", "Interface")},
-            {Page::Donations, uiText("Донаты", "Donations")}
-        };
-        int subIndex = 0;
-        for (const auto& p : pages) {
-            auto* b = btn(p.name);
-            if(p.page == page_) b->setObjectName("ActiveNav");
-            connect(b, &QPushButton::clicked, this, [this,p] {showPage(p.page);});
-            subnav->addWidget(b, subIndex / 2, subIndex % 2);
-            ++subIndex;
-        }
+        auto* sub = new QComboBox;
+        sub->setAccessibleName(uiText("Раздел настроек", "Settings section"));
+        sub->addItem(uiText("Связь", "Connections"),int(Page::Connections));
+        sub->addItem(uiText("Сообщение", "Message"),int(Page::Message));
+        sub->addItem(uiText("Интерфейс", "Interface"),int(Page::Interface));
+        sub->addItem(uiText("Донаты", "Donations"),int(Page::Donations));
+        sub->setCurrentIndex(sub->findData(int(page_)));
+        connect(sub,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,sub](int){
+            showPage(static_cast<Page>(sub->currentData().toInt()));
+        });
         vertical->addWidget(sub);
     }
     auto* scroll = new QScrollArea;
@@ -460,7 +462,7 @@ QWidget* StreamDock::buildMessage()
     section(v, uiText("Шаблон уведомления", "Notification template"));
     v->addWidget(label(uiText("Поддерживаются {youtube} и {twitch}", "Supports {youtube} and {twitch}"), "Hint"));
     auto* edit = new QTextEdit;
-    edit->setMinimumHeight(150);
+    edit->setMinimumHeight(100);
     edit->setPlainText(store_.current.message);
     connect(edit, &QTextEdit::textChanged, this, [this,edit] {store_.current.message=edit->toPlainText();changeSettings();});
     v->addWidget(edit);
@@ -609,7 +611,7 @@ QWidget* StreamDock::buildDonations()
     select->addItem(uiText("👑 Мега", "👑 Mega"),2);
     v->addWidget(select);
     auto* editor=new QTextEdit;
-    editor->setMinimumHeight(200);
+    editor->setMinimumHeight(110);
     editor->setPlainText(s.templates.at(0));
     v->addWidget(editor);
     v->addWidget(label("{donor} {amount} {currency} {message} {service} {stream_url}","Hint"));
@@ -714,7 +716,7 @@ QWidget* StreamDock::buildInterface()
 // Circular progress is repainted once per second only while counting.
 class CountdownRing final : public QWidget {
 public:
-    explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {setMinimumSize(210,210);}
+    explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {setMinimumSize(160,160);}
     void setValues(int remaining, int total) { remaining_=remaining; total_=std::max(1,total); update(); }
 protected:
     void paintEvent(QPaintEvent*) override
@@ -729,7 +731,7 @@ protected:
         p.setPen(QPen(QColor("#24dcf8"), 10, Qt::SolidLine, Qt::RoundCap));
         p.drawArc(r,90*16, -int(360.0*16*remaining_/total_));
         p.setPen(QColor("#e4f3ff"));
-        QFont f=font(); f.setPointSize(39); f.setBold(true); p.setFont(f);
+        QFont f=font(); f.setPointSize(30); f.setBold(true); p.setFont(f);
         const QString value = QString("%1:%2").arg(remaining_/60,2,10,QChar('0')).arg(remaining_%60,2,10,QChar('0'));
         p.drawText(rect(), Qt::AlignCenter,value);
     }
@@ -824,14 +826,14 @@ QWidget* StreamDock::buildResult()
     auto* v = column(body, 16, 13);
     v->addStretch();
     auto* symbol = label(allOk ? "✔" : partial ? "⚠" : "✕");
-    QFont big = symbol->font(); big.setPointSize(74); big.setBold(true); symbol->setFont(big);
+    QFont big = symbol->font(); big.setPointSize(46); big.setBold(true); symbol->setFont(big);
     symbol->setStyleSheet("color:#ffffff;");
     symbol->setAlignment(Qt::AlignHCenter);
     v->addWidget(symbol);
     auto* title = label(allOk ? uiText("Уведомления отправлены", "Notifications sent") :
        partial ? uiText("Отправлено частично", "Partially delivered") : uiText("Не удалось отправить", "Delivery failed"));
     title->setAlignment(Qt::AlignHCenter);
-    QFont font = title->font(); font.setPointSize(20); font.setBold(true); title->setFont(font);
+    QFont font = title->font(); font.setPointSize(15); font.setBold(true); title->setFont(font);
     title->setStyleSheet("color:#ffffff;");
     v->addWidget(title);
     QVBoxLayout* results;
