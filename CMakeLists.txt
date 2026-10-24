@@ -108,3 +108,9 @@ find_file(_schannel_backend qschannelbackend.dll
 install(FILES "${_schannel_backend}" DESTINATION "${CMAKE_PROJECT_NAME}/data/qt-plugins/tls")
 add_executable(stream-notify-tls-test tests/test_tls_runtime.cpp)
 target_link_libraries(stream-notify-tls-test PRIVATE Qt6::Core Qt6::Network)
+
+add_executable(stream-notify-discord-tests tests/test_discord_payload.cpp)
+target_link_libraries(stream-notify-discord-tests PRIVATE Qt6::Core)
+add_test(NAME discord-everyone-payload COMMAND stream-notify-discord-tests)
+set_tests_properties(discord-everyone-payload PROPERTIES
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")

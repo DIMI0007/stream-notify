@@ -518,6 +518,15 @@ QWidget* StreamDock::buildConnections()
     dc->setChecked(store_.current.discordEnabled);
     connect(dc, &QCheckBox::toggled, this, [this](bool val){store_.current.discordEnabled=val;changeSettings();});
     v->addWidget(dc);
+    auto* everyone=new StreamSwitch(uiText("Упоминать @everyone","Mention @everyone"));
+    everyone->setChecked(store_.current.discordEveryone);
+    everyone->setToolTip(uiText("Добавлять @everyone в конец сообщений Discord: анонсы, донаты и ручные тесты.",
+        "Append @everyone to Discord messages: stream announcements, donations and manual tests."));
+    connect(everyone,&QCheckBox::toggled,this,[this](bool checked){
+        store_.current.discordEveryone=checked;changeSettings();
+    });
+    v->addWidget(everyone);
+
     v->addWidget(label("Webhook URL", "Hint"));
     auto* hook = new QLineEdit(store_.current.discordWebhook);
     hook->setEchoMode(QLineEdit::Password);

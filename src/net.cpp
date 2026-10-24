@@ -1,4 +1,5 @@
 #include "net.hpp"
+#include "discord_payload.hpp"
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QJsonObject>
@@ -50,8 +51,12 @@ void Sender::start(const std::shared_ptr<Task>& task)
         q.removeAllQueryItems("wait");
         q.addQueryItem("wait", "true");
         url.setQuery(q);
-        payload["content"] = task->message;
-        payload["allowed_mentions"] = QJsonObject{{"parse", QJsonArray{}}};
+        const auto discord=discordPayload(task->message,task->s.discordEveryone);
+        if(!discord) {
+            task->done({Outcome::Failed,"Discord message exceeds 2000 characters including @everyone",task->attempts});
+            return;
+        }
+        payload=*discord;
     }
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json; charset=utf-8");

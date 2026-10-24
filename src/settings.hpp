@@ -30,6 +30,7 @@ struct Settings {
     bool enabled = true;
     bool telegramEnabled = false;
     bool discordEnabled = false;
+    bool discordEveryone = false;
     QString telegramToken;
     QString telegramChat;
     QString discordWebhook;
@@ -50,6 +51,7 @@ struct Settings {
 struct Snapshot {
     bool telegram = false;
     bool discord = false;
+    bool discordEveryone = false;
     QString token;
     QString chat;
     QString webhook;

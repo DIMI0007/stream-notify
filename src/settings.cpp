@@ -93,6 +93,7 @@ bool SettingsStore::load()
     current.enabled = flag("enabled", true);
     current.telegramEnabled = flag("telegram_enabled", false);
     current.discordEnabled = flag("discord_enabled", false);
+    current.discordEveryone = flag("discord_everyone", false);
     current.telegramChat = str("telegram_chat", {});
     current.youtubeUrl = str("youtube_url", {});
     current.twitchUrl = str("twitch_url", {});
@@ -187,6 +188,7 @@ bool SettingsStore::save()
     j["enabled"] = current.enabled;
     j["telegram_enabled"] = current.telegramEnabled;
     j["discord_enabled"] = current.discordEnabled;
+    j["discord_everyone"] = current.discordEveryone;
     j["telegram_chat"] = current.telegramChat;
     j["telegram_secret"] = QString::fromLatin1(t);
     j["discord_secret"] = QString::fromLatin1(d);
@@ -272,6 +274,7 @@ Snapshot makeSnapshot(const Settings& s, QString* error)
     Snapshot out;
     out.telegram = s.telegramEnabled;
     out.discord = s.discordEnabled;
+    out.discordEveryone = s.discordEveryone;
     out.token = s.telegramToken;
     out.chat = s.telegramChat;
     out.webhook = s.discordWebhook;
