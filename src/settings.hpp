@@ -39,7 +39,7 @@ struct Settings {
     int sendDelay = 60;
     int resultSeconds = 45;
     QString locale = "auto";
-    bool compact = false;
+    bool compact = true;
     bool showStatus = true;
     QString lastTelegram = "";
     QString lastDiscord = "";

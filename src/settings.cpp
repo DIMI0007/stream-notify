@@ -103,7 +103,7 @@ bool SettingsStore::load()
     if (!acceptedResult(current.resultSeconds)) current.resultSeconds = 45;
     current.locale = str("locale", "auto");
     if (!QSet<QString>{"ru", "en", "auto"}.contains(current.locale)) current.locale = "auto";
-    current.compact = flag("compact", false);
+    current.compact = flag("compact", true);
     current.showStatus = flag("show_status", true);
     current.lastTelegram = str("last_telegram", {});
     current.lastDiscord = str("last_discord", {});
