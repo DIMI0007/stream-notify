@@ -58,7 +58,7 @@ private:
     QPointer<CountdownRing> ring_;
     bool shuttingDown_ = false;
 
-    QString tr(const char* ru, const char* en) const;
+    QString uiText(const char* ru, const char* en) const;
     bool isRu() const;
     void rebuild();
     QWidget* buildRegular();

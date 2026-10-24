@@ -139,9 +139,9 @@ bool SettingsStore::load()
     const QJsonArray templates=donations.value("templates").toArray();
     if(templates.size()==3)for(int i=0;i<3;++i)if(templates[i].isString())ds.templates[i]=templates[i].toString();
     bool c=unprotect(donations.value("da_secret").toString().toUtf8(),ds.daToken);
-    bool d=unprotect(donations.value("dp_secret").toString().toUtf8(),ds.dpToken);
-    if(!c || !d) {
-        if(!c)ds.daToken.clear(); if(!d)ds.dpToken.clear();
+    bool dpDecrypted=unprotect(donations.value("dp_secret").toString().toUtf8(),ds.dpToken);
+    if(!c || !dpDecrypted) {
+        if(!c)ds.daToken.clear(); if(!dpDecrypted)ds.dpToken.clear();
         error_="Could not decrypt donation tokens";return false;
     }
     return true;

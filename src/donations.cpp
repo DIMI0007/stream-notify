@@ -105,18 +105,18 @@ Donation parseDonatePay(const QJsonObject& packet) {
     Donation d; d.service="DonatePay";
     QJsonObject j=normalize(packet);
     d.id=first(j,{"id","transaction_id"});
-    d.donor=first(j,{"name","username","donor_name"});
+    d.donor=first(j,{"what","name","username","donor_name"});
     d.message=first(j,{"comment","message"});
     d.currency=first(j,{"currency"}).toUpper();
-    if(d.currency.isEmpty()) d.currency="RUB"; // DonatePay legacy rouble ledger
+    // Missing currency is not inferred from account balance or locale.
+    // Unknown currencies are rejected by donationLevel until the API schema is verified.
     const QJsonValue a = j.contains("sum")?j.value("sum"):j.value("amount");
     d.amount=a.isString()?a.toString().toDouble():a.toDouble();
     const QString type=first(j,{"type"}).toLower();
     const QString status=first(j,{"status"}).toLower();
     // Do not treat unknown status/types as confirmed donations.
     d.isTest=j.value("is_test").toBool(false) || j.value("test").toBool(false) ||
-             (!type.isEmpty() && type!="donation" && type!="1") ||
-             (!status.isEmpty() && status!="success" && status!="completed" && status!="1");
+             type!="donation" || status!="success";
     return d;
 }
 
@@ -165,7 +165,8 @@ bool DonationLedger::setStatus(const QString& key,const QString& channel,const Q
 }
 QStringList DonationLedger::recent()const{
     QStringList lines;
-    for(auto it=items_.crbegin();it!=items_.crend() && lines.size()<100;++it){
+    for(auto it=items_.cend();it!=items_.cbegin() && lines.size()<100;){
+        --it;
         const QJsonObject j=it.value();
         lines << j.value("timestamp").toString()+"  ["+j.value("service").toString()+"] "+
         QString::number(j.value("amount").toDouble(),'f',2)+" "+j.value("currency").toString()+
@@ -308,7 +309,9 @@ void DonationEngine::dpPoll() {
     // A legacy GET endpoint and >=30s interval are used only with explicit opt-in.
     state(dpStatus_,"Connecting");
     QUrl u("https://donatepay.ru/api/v1/transactions");
-    QUrlQuery q;q.addQueryItem("access_token",dpSignature_);q.addQueryItem("limit","25");
+    QUrlQuery q;q.addQueryItem("access_token",dpSignature_);q.addQueryItem("limit","100");
+    q.addQueryItem("type","donation");q.addQueryItem("status","success");
+    q.addQueryItem("order","DESC");
     u.setQuery(q);
     QNetworkRequest req(u);
     req.setTransferTimeout(10000);
