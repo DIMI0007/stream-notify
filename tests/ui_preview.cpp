@@ -31,11 +31,23 @@ struct DockPreview {
             }
             panel.monitor_.sample(ms);
         }
+        auto& donations=panel.store_.current.donations;
+        const auto originalDonations=donations;
+        donations.enabled=true;donations.daEnabled=true;donations.dpEnabled=false;
+        donations.toTelegram=false;donations.toDiscord=false;
+        panel.donation_.setLive(true);
+        Donation first;first.service="DonationAlerts";first.id="ui-summary-first";first.amount=49;first.currency="RUB";
+        Donation second=first;second.id="ui-summary-second";second.amount=50;
+        panel.donation_.onDonation(first);panel.donation_.onDonation(second);panel.donation_.onDonation(first);
+        Donation test=first;test.id="ui-summary-test";test.isTest=true;panel.donation_.onDonation(test);
+        const auto summary=panel.donation_.sessionSummary();
+        if(summary.count!=2 || summary.rub!=99)qFatal("Donation summary did not deduplicate below-threshold events");
+        donations=originalDonations;
         panel.broadcasting_=true;panel.page_=StreamDock::Page::Home;panel.phase_=StreamDock::Phase::Idle;
         panel.rebuild();
     }
     static void stopMonitorDemo(StreamDock& panel) {
-        streamPreviewOutputs.clear();panel.monitor_.clear();panel.broadcasting_=false;
+        streamPreviewOutputs.clear();panel.monitor_.clear();panel.broadcasting_=false;panel.donation_.setLive(false);
         panel.telemetryTimer_.start();panel.streamStateTimer_.start();panel.rebuild();
     }
     static Settings demoConnections(StreamDock& panel) {

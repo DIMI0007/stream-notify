@@ -1,6 +1,7 @@
 #pragma once
 #include "settings.hpp"
 #include "net.hpp"
+#include "donation_summary.hpp"
 #include <QObject>
 #include <QMap>
 #include <QJsonObject>
@@ -42,11 +43,15 @@ private:
 
 class DonationEngine : public QObject {
     Q_OBJECT
+#ifdef STREAM_NOTIFY_UI_PREVIEW
+    friend struct DockPreview;
+#endif
 public:
     explicit DonationEngine(SettingsStore* settings, QObject* parent = nullptr);
     void configure();
     void setLive(bool active);
     void stop();
+    sn::DonationSummary sessionSummary() const{return sessionStats_.value();}
     QString daStatus() const { return daStatus_; }
     QString dpStatus() const { return dpStatus_; }
     QStringList journal() const { return ledger_.recent(); }
@@ -78,6 +83,7 @@ private:
     QWebSocket websocket_;
     QTimer daRetry_, dpTimer_;
     DonationLedger ledger_;
+    sn::DonationSession sessionStats_;
     bool live_ = false, closing_ = false, dpPrimed_ = false;
     int daBackoff_ = 0, dpBackoff_ = 0;
     quint64 daEpoch_ = 0, dpEpoch_ = 0;

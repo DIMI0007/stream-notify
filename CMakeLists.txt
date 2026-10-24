@@ -128,3 +128,10 @@ target_compile_definitions(stream-notify-resource-tests PRIVATE WIN32_LEAN_AND_M
 add_test(NAME plugin-resource-accounting COMMAND stream-notify-resource-tests)
 set_tests_properties(plugin-resource-accounting PROPERTIES
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+
+add_executable(stream-notify-donation-summary-tests tests/test_donation_summary.cpp)
+target_link_libraries(stream-notify-donation-summary-tests PRIVATE Qt6::Core)
+target_compile_options(stream-notify-donation-summary-tests PRIVATE /UNDEBUG /utf-8)
+add_test(NAME donation-session-summary COMMAND stream-notify-donation-summary-tests)
+set_tests_properties(donation-session-summary PROPERTIES
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")

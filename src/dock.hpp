@@ -40,6 +40,7 @@ private:
     Phase phase_ = Phase::Idle;
     Page page_ = Page::Home;
     bool alreadyHandled_ = false;
+    bool announcementAttempted_ = false;
     bool broadcasting_ = false;
     bool loadedCleanly_ = true;
     quint64 generation_ = 0;
@@ -60,6 +61,7 @@ private:
 
     QVBoxLayout* root_ = nullptr;
     QLabel* title_ = nullptr;
+    QPointer<QLabel> donationSummaryLabel_;
     QPointer<sn::OutputPanel> outputPanel_;
     QPointer<sn::ResourcePanel> resourcePanel_;
     sn::StreamMonitor monitor_;
@@ -82,6 +84,7 @@ private:
     bool rebuildPending_ = false;
     QWidget* buildRegular();
     QWidget* buildHome();
+    QString donationSummaryText() const;
     QWidget* buildConnections();
     QWidget* buildMessage();
     QWidget* buildInterface();

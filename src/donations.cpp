@@ -222,6 +222,7 @@ void DonationEngine::stop(){
 void DonationEngine::setLive(bool active) {
     sn::CpuScope snCpuScope;
     const bool changed=(live_!=active);
+    if(changed){if(active)sessionStats_.begin();else sessionStats_.end();}
     live_=active;
     if(!active && store_->current.donations.onlyLive) {
         // Inflight network delivery is indeterminate; do not retry after stop.
@@ -394,6 +395,11 @@ void DonationEngine::onDonation(const Donation& d) {
     if(closing_)return;
     const auto& cfg=store_->current.donations;
     if(!cfg.enabled || d.isTest)return;
+    const QString statsKey=rawKey(d.service,d.id);
+    const QString currency=d.currency.trimmed().toUpper();
+    const double rate=currency=="RUB"?1.0:savedRates().value("rub_per_unit").toObject().value(currency).toDouble(0);
+    if(!d.id.isEmpty() && !ledger_.contains(statsKey) &&
+       sessionStats_.observe(statsKey,d.amount,rate,d.isTest,currency!="RUB"))Q_EMIT updated();
     const int level=donationLevel(d,cfg);if(level<0)return;
     const QString key=rawKey(d.service,d.id);
     if(ledger_.contains(key))return;
@@ -513,6 +519,6 @@ void DonationEngine::account(sn::BufferCensus& census) const {
     for(const auto* value:{&daStatus_,&dpStatus_,&daSignature_,&dpSignature_,&daSocketToken_,&daChannel_})census.add(*value);
     for(const auto& value:dpBaseline_)census.add(value);
     for(const auto& value:openJobs_)census.add(value);
-    sender_.account(census);
+    sender_.account(census);sessionStats_.account(census);
     for(auto* reply:http_.findChildren<QNetworkReply*>())sn::accountReply(census,reply);
 }

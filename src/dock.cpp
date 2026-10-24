@@ -213,6 +213,7 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     connect(&donation_, &DonationEngine::updated, this, [this] {
         if(daStatusLabel_) daStatusLabel_->setText(serviceStatus(donation_.daStatus(),isRu()));
         if(dpStatusLabel_) dpStatusLabel_->setText(serviceStatus(donation_.dpStatus(),isRu()));
+        if(donationSummaryLabel_)donationSummaryLabel_->setText(donationSummaryText());
         if(donationJournalLabel_) {
             const auto entries=donation_.journal();
             donationJournalLabel_->setText(entries.isEmpty()?uiText("Пока нет донатов","No donations yet"):entries.mid(0,6).join("\n"));
@@ -448,88 +449,85 @@ QWidget* StreamDock::buildRegular()
 QWidget* StreamDock::buildHome()
 {
     sn::CpuScope snCpuScope;
-    auto* body = new QWidget;
-    auto* outer = column(body, 10, 3);
-    QVBoxLayout* v;
-    auto* enabled = card(&v);
-    auto* toggle = new StreamSwitch(uiText("Анонсировать начало стрима", "Announce stream start"));
-    toggle->setChecked(store_.current.enabled);
-    connect(toggle, &QCheckBox::toggled, this, [this](bool val) {
-        store_.current.enabled = val;
-        changeSettings();
-        if (!val && phase_ == Phase::Counting) cancelCurrent("Disabled");
-        else rebuild();
-    });
-    v->addWidget(toggle);
-    v->addWidget(label(uiText("Один анонс после старта трансляции", "One announcement when streaming starts"), "Hint"));
-    outer->addWidget(enabled);
-
-    auto* status = card(&v);
+    auto* body=new QWidget;
+    auto* outer=column(body,5,3);QVBoxLayout* v;
+    auto* status=card(&v);
     if(!broadcasting_)status->setObjectName("WaitingCard");
-    section(v, uiText("Статус трансляции", "Stream status"));
-    QString state = broadcasting_ ? uiText("● Стрим активен", "● Stream is live") : uiText("◉ Ожидание трансляции", "◉ Waiting for stream");
-    auto* stateRow=new QHBoxLayout;stateRow->setSpacing(8);
-    stateRow->addWidget(new ServiceBadge(broadcasting_?"Stream Notify":"Waiting"));
-    stateRow->addWidget(label(state,broadcasting_?"Good":"Waiting"),1);v->addLayout(stateRow);
-    QString hint = statusText_;
-    if (hint.isEmpty()) hint = broadcasting_ ? uiText("Рассылка не запущена", "No notification pending") :
-      uiText("Начните эфир в OBS или Aitum", "Go live with OBS or Aitum");
-    v->addWidget(label(hint, "Hint"));
-    outer->addWidget(status);
+    auto* statusRow=new QHBoxLayout;statusRow->setSpacing(7);
+    statusRow->addWidget(new ServiceBadge(broadcasting_?"Stream Notify":"Waiting"));
+    auto* statusText=new QVBoxLayout;statusText->setSpacing(2);
+    statusText->addWidget(label(broadcasting_?uiText("В эфире","Live"):uiText("Ожидание трансляции","Waiting for stream"),broadcasting_?"Good":"Waiting"));
+    statusText->addWidget(label(store_.current.enabled
+        ?uiText("Автоанонс · через %1 с","Auto announcement · after %1 s").arg(store_.current.sendDelay)
+        :uiText("Автоанонс выключен","Auto announcement off"),"Hint"));
+    statusRow->addLayout(statusText,1);v->addLayout(statusRow);
+    status->setToolTip(statusText_);outer->addWidget(status);
 
-    auto* channelCard = card(&v);
-    section(v, uiText("Куда отправлять", "Destinations"));
-    auto addChannel = [&](Channel c) {
-        const bool tg = (c == Channel::Telegram);
-        auto* h = new QHBoxLayout;
-        h->addWidget(new ServiceBadge(tg ? "Telegram" : "Discord"));
-        auto* details=new QVBoxLayout;details->setSpacing(2);
-        details->addWidget(label(tg ? "Telegram" : "Discord","Section"));
-        const bool configured=tg?validTelegram(store_.current.telegramToken,store_.current.telegramChat):validDiscord(store_.current.discordWebhook);
-        const bool enabled=tg?store_.current.telegramEnabled:store_.current.discordEnabled;
-        const bool testing=tg?testingTelegram_:testingDiscord_;
-        if(enabled && configured && !testing) {
-            auto* ready=new ReadyStatus(uiText("Готов","Ready"));
-            ready->setToolTip(uiText("Данные заполнены. Кнопка «Тест» проверяет доставку.",
-                "Connection details are set. Use Test to verify delivery."));
-            details->addWidget(ready);
-        } else {
-            details->addWidget(label(testing?uiText("Проверяем…","Testing…"):
-                !configured?uiText("Не настроен","Not configured"):uiText("Выключен","Disabled"),"Hint"));
-        }
-        h->addLayout(details,1);
-        auto* test = btn(configured?uiText("Тест", "Test"):uiText("Настроить","Set up"));
-        test->setEnabled(!testing);
-        test->setToolTip(configured?uiText("Отправить тестовое сообщение","Send a test message"):
-            uiText("Открыть настройки подключения","Open connection settings"));
-        connect(test,&QPushButton::clicked,this,[this,c,tg,configured] {
-            if(configured)testChannel(c);
-            else openConnections(tg?"TelegramToken":"DiscordWebhook");
-        });
-        h->addWidget(test);
-        v->addLayout(h);
-        QString temp = tg ? transientTelegram_ : transientDiscord_;
-        if(!temp.isEmpty()) v->addWidget(label(temp, "Hint"));
+    auto* channels=card(&v);section(v,uiText("Отправка в мессенджеры","Notification channels"));
+    auto* channelRow=new QHBoxLayout;channelRow->setSpacing(8);
+    auto addChannel=[&](bool telegram) {
+        auto* cell=new QWidget;auto* row=new QHBoxLayout(cell);row->setContentsMargins(0,0,0,0);row->setSpacing(6);
+        row->addWidget(new ServiceBadge(telegram?"Telegram":"Discord"));
+        auto* details=new QVBoxLayout;details->setSpacing(0);
+        details->addWidget(label(telegram?"Telegram":"Discord","Section"));
+        const bool configured=telegram?validTelegram(store_.current.telegramToken,store_.current.telegramChat):validDiscord(store_.current.discordWebhook);
+        const bool enabled=telegram?store_.current.telegramEnabled:store_.current.discordEnabled;
+        if(configured&&enabled)details->addWidget(new ReadyStatus(uiText("Готов","Ready")));
+        else details->addWidget(label(!enabled?uiText("Выключен","Off"):uiText("Не настроен","Not set"),"Hint"));
+        row->addLayout(details,1);
+        cell->setToolTip(uiText("Проверка и подключение: Настройки → Связь","Test and configure under Settings → Connect"));
+        channelRow->addWidget(cell,1);
     };
-    addChannel(Channel::Telegram); addChannel(Channel::Discord);
+    addChannel(true);addChannel(false);v->addLayout(channelRow);
+    if(!validTelegram(store_.current.telegramToken,store_.current.telegramChat) && !validDiscord(store_.current.discordWebhook)){
+        auto* setup=btn(uiText("Настроить отправку","Set up notifications"));
+        connect(setup,&QPushButton::clicked,this,[this]{openConnections("TelegramToken");});v->addWidget(setup);
+    }
+    outer->addWidget(channels);
 
+    auto* delivery=card(&v);section(v,uiText("Отправка анонса","Stream announcement"));
+    const bool sentNow=telegram_.status==Outcome::Sent || discord_.status==Outcome::Sent;
+    const bool cancelled=telegram_.status==Outcome::Cancelled || discord_.status==Outcome::Cancelled;
+    const bool historySent=store_.current.lastTelegram.startsWith(QString::fromUtf8("✓")) ||
+        store_.current.lastDiscord.startsWith(QString::fromUtf8("✓"));
+    const bool sent=broadcasting_?(announcementAttempted_&&sentNow):historySent;
+    QString outcome=sent?uiText("✓ Отправлен","✓ Sent"):
+        broadcasting_&&cancelled?uiText("Отправка отменена","Cancelled"):
+        broadcasting_&&announcementAttempted_?uiText("Доставка не подтверждена","Delivery unconfirmed"):
+        !broadcasting_&&!store_.current.lastTime.isEmpty()?uiText("Последняя попытка без подтверждения","Last delivery unconfirmed"):
+        uiText("Ещё не отправляли","Not sent yet");
+    v->addWidget(label(outcome,sent?"Good":"Hint"));
+    delivery->setToolTip(store_.current.lastTime+"\nTelegram: "+store_.current.lastTelegram+"\nDiscord: "+store_.current.lastDiscord+"\n"+statusText_);
+    outer->addWidget(delivery);
 
-    outer->addWidget(channelCard);
+    auto* donations=card(&v);
+    section(v,uiText("Донаты за эфир","Stream donations"));
+    auto* donationSummary=label(donationSummaryText(),"Hint");donationSummaryLabel_=donationSummary;
+    donationSummary->setToolTip(uiText(
+        "Полученные плагином реальные донаты за текущий/последний эфир, включая суммы ниже порога. Тесты и повторы исключены. Перезапуск OBS обнуляет эту сводку; журнал доставки сохраняется.",
+        "Real donations observed during the current/last stream, including amounts below the announcement threshold. Tests and duplicates are excluded. This summary resets on OBS restart; delivery history remains saved."));
+    v->addWidget(donationSummary);outer->addWidget(donations);
 
-    auto* last = card(&v);
-    section(v, uiText("Последняя отправка", "Last delivery"));
-    v->addWidget(label(store_.current.lastTime.isEmpty() ? uiText("Ещё не отправлялись", "Nothing sent yet") : store_.current.lastTime, "Hint"));
-    if (!store_.current.lastTelegram.isEmpty()) v->addWidget(label("Telegram: " + store_.current.lastTelegram));
-    if (!store_.current.lastDiscord.isEmpty()) v->addWidget(label("Discord: " + store_.current.lastDiscord));
-    outer->addWidget(last);
     auto* outputs=new sn::OutputPanel(isRu());outputs->setObjectName("OutputMonitor");
     outputs->setStyleSheet("QWidget#OutputMonitor{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
     outputs->setOutputs(monitor_.views());outputPanel_=outputs;outer->addWidget(outputs);
     auto* resources=new sn::ResourcePanel(isRu());resources->setObjectName("PluginResources");
     resources->setStyleSheet("QWidget#PluginResources{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
     resources->setUsage(usage_);resourcePanel_=resources;outer->addWidget(resources);
-    outer->addStretch();
-    return body;
+    outer->addStretch();return body;
+}
+
+QString StreamDock::donationSummaryText() const
+{
+    const auto summary=donation_.sessionSummary();
+    if(!summary.count)return !store_.current.donations.enabled?uiText("Модуль выключен","Module off"):
+        summary.started?uiText("Пока нет донатов","No donations yet"):uiText("Ожидаем эфир","Waiting for stream");
+    const QLocale locale=isRu()?QLocale(QLocale::Russian):QLocale(QLocale::English);
+    QString result=uiText("Получено: %1","Received: %1").arg(qulonglong(summary.count));
+    if(summary.count>summary.unpriced)result+=QString::fromUtf8(" · ")+(summary.converted?QString::fromUtf8("≈"):QString())+
+        locale.toString(summary.rub,'f',std::floor(summary.rub)==summary.rub?0:2)+QString::fromUtf8(" ₽");
+    if(summary.unpriced)result+=uiText(" · без курса: %1"," · unpriced: %1").arg(qulonglong(summary.unpriced));
+    return result;
 }
 
 QWidget* StreamDock::buildConnections()
@@ -1247,6 +1245,7 @@ void StreamDock::streamStarted()
     // One notification session spans all concurrently active streaming outputs.
     if(alreadyHandled_) {rebuild();return;}
     alreadyHandled_ = true;
+    announcementAttempted_=false;telegram_={};discord_={};
     resultTimer_.stop();
     ++generation_;
     if(!store_.current.enabled) {statusText_=uiText("Автоуведомления выключены", "Automatic notifications disabled");rebuild();return;}
@@ -1315,6 +1314,7 @@ void StreamDock::dispatch()
         telegram_ = {Outcome::NotConfigured,"Check BotFather token and Chat ID",0};
     if (discord_.status == Outcome::Waiting && !validDiscord(session_.webhook))
         discord_ = {Outcome::NotConfigured,"Check Discord webhook URL",0};
+    announcementAttempted_=true;
     activePending_ = 0;
     if (telegram_.status == Outcome::Waiting) {telegram_.status = Outcome::Sending; ++activePending_;}
     if (discord_.status == Outcome::Waiting) {discord_.status = Outcome::Sending; ++activePending_;}
