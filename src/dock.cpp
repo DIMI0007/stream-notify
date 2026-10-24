@@ -386,6 +386,7 @@ QWidget* StreamDock::buildRegular()
         };
         for(const auto& item:sections) {
             auto* choice=btn(item.title);choice->setObjectName("DonationTab");
+            choice->setMinimumWidth(0);choice->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Fixed);
             choice->setProperty("selected",item.page==donationPage_);
             choice->setProperty("donationSection",int(item.page));choice->setToolTip(item.hint);
             connect(choice,&QPushButton::clicked,this,[this,page=item.page]{donationPage_=page;rebuild();});
