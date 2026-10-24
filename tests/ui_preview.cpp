@@ -77,7 +77,7 @@ int main(int argc,char** argv) {
     auto click=[&](const QString& text) {
         for(auto* button:panel.findChildren<QPushButton*>())
             if(button->text().contains(text) && button->isEnabled()){button->click();pump();return true;}
-        std::cerr<<"Missing UI navigation control\n";return false;
+        std::cerr<<"Missing UI navigation control: "<<text.toStdString()<<"\n";return false;
     };
     auto save=[&](const QString& name){pump();return panel.grab().save(output+"/"+name+".png");};
     if(!save("01-home"))return 1;

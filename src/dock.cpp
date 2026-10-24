@@ -1096,7 +1096,8 @@ QWidget* StreamDock::buildCountdown()
     addChannel("Telegram",session_.telegram);addChannel("Discord",session_.discord);
     channels->addWidget(label(uiText("Задержка: %1 сек.", "Delay: %1 sec.").arg(session_.delay),"Hint"));
     v->addWidget(box);
-    auto* cancel = btn(uiText("■  Отменить отправку", "■  Cancel notification"));
+    auto* cancel = btn(uiText("Отменить отправку", "Cancel notification"));
+    cancel->setIcon(streamNavIcon("stop",true));cancel->setIconSize(QSize(18,18));
     cancel->setObjectName("Cancel");
     connect(cancel, &QPushButton::clicked, this, [this] {cancelCurrent("User cancelled");});
     v->addWidget(cancel);

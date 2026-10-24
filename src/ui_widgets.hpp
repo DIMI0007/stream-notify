@@ -144,6 +144,8 @@ inline QIcon streamNavIcon(const QString& kind,bool active=false) {
         p.drawEllipse(QPointF(12,12),9,9);
         QFont font=p.font();font.setPixelSize(15);font.setBold(true);p.setFont(font);
         p.drawText(QRectF(1,1,22,22),Qt::AlignCenter,QString::fromUtf8("₽"));
+    } else if(kind=="stop") {
+        p.setPen(Qt::NoPen);p.setBrush(color);p.drawRoundedRect(QRectF(6,6,12,12),2,2);
     } else if(kind=="copy") {
         p.drawRoundedRect(QRectF(3,7,13,14),2,2);p.drawRoundedRect(QRectF(8,3,13,14),2,2);
     }

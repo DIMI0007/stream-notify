@@ -23,13 +23,16 @@ jobs:
           $qtRoot = Join-Path $PWD ".deps/obs-deps-qt6-2026-10-23-x64"
           $env:PATH = "$qtRoot/bin;$PWD/build_x64/qtwebsockets-install/bin;$env:PATH"
           $env:QT_PLUGIN_PATH = "$qtRoot/plugins"
-          $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config"
+          $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config/normal"
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config/wide"
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/wide 420 1050
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config/obs-dock"
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/obs-dock 360 620
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config/hidpi"
           $env:QT_SCALE_FACTOR = "2"
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/hidpi 360 620
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
