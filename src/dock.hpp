@@ -2,6 +2,8 @@
 #include "settings.hpp"
 #include "net.hpp"
 #include "donations.hpp"
+#include "stream_monitor.hpp"
+namespace sn {class OutputPanel;class ResourcePanel;}
 #include <QWidget>
 #include <QTimer>
 #include <QElapsedTimer>
@@ -58,7 +60,13 @@ private:
 
     QVBoxLayout* root_ = nullptr;
     QLabel* title_ = nullptr;
-    QLabel* saveLabel_ = nullptr;
+    QPointer<sn::OutputPanel> outputPanel_;
+    QPointer<sn::ResourcePanel> resourcePanel_;
+    sn::StreamMonitor monitor_;
+    sn::UsageSampler usageSampler_;
+    sn::Usage usage_;
+    QTimer telemetryTimer_;
+    QElapsedTimer telemetryClock_;
     QWidget* central_ = nullptr;
     QLabel* countdownLabel_ = nullptr;
     QLabel* daStatusLabel_ = nullptr;
@@ -88,6 +96,7 @@ private:
     void openConnections(const QString& field);
     void showPhase(Phase phase);
     void updateCountdown();
+    void refreshTelemetry();
     void cancelCurrent(const QString& reason);
     void dispatch();
     void complete();

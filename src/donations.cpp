@@ -1,4 +1,5 @@
 #include "donations.hpp"
+#include "resources.hpp"
 #include "donation_logic.hpp"
 #include <obs-module.h>
 #include <util/bmem.h>
@@ -133,6 +134,7 @@ Donation parseDonatePay(const QJsonObject& packet) {
 
 DonationLedger::DonationLedger(const QString& path):path_(path){}
 bool DonationLedger::load() {
+    sn::CpuScope snCpuScope;
     QFile f(path_); if(!f.exists()) return true;
     if(!f.open(QIODevice::ReadOnly)){error_="Cannot read donation journal";return false;}
     QJsonParseError e; auto j=QJsonDocument::fromJson(f.readAll(),&e);
@@ -148,8 +150,10 @@ bool DonationLedger::load() {
     }
     return !repaired || persist();
 }
-bool DonationLedger::contains(const QString& key) const {return items_.contains(key);}
+bool DonationLedger::contains(const QString& key) const {
+    sn::CpuScope snCpuScope;return items_.contains(key);}
 bool DonationLedger::persist() {
+    sn::CpuScope snCpuScope;
     if(path_.isEmpty() || !QDir().mkpath(QFileInfo(path_).absolutePath())){error_="Cannot create donation journal folder";return false;}
     QJsonObject items; for(auto it=items_.cbegin();it!=items_.cend();++it)items[it.key()]=it.value();
     QSaveFile f(path_);
@@ -160,6 +164,7 @@ bool DonationLedger::persist() {
     error_.clear();return true;
 }
 bool DonationLedger::claim(const QString& key,const Donation& d,int level,bool tg,bool dc) {
+    sn::CpuScope snCpuScope;
     if(contains(key))return false;
     QJsonObject item{{"timestamp",QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
       {"service",d.service},{"amount",d.amount},{"currency",d.currency},{"level",level+1},
@@ -169,12 +174,14 @@ bool DonationLedger::claim(const QString& key,const Donation& d,int level,bool t
     return true;
 }
 bool DonationLedger::setStatus(const QString& key,const QString& channel,const QString& status) {
+    sn::CpuScope snCpuScope;
     if(!items_.contains(key))return false;
     const QJsonObject old=items_[key]; QJsonObject item=old; item[channel]=status;items_[key]=item;
     if(!persist()){items_[key]=old;return false;}
     return true;
 }
 QStringList DonationLedger::recent()const{
+    sn::CpuScope snCpuScope;
     QStringList lines;
     for(auto it=items_.cend();it!=items_.cbegin() && lines.size()<100;){
         --it;
@@ -193,23 +200,27 @@ DonationEngine::DonationEngine(SettingsStore* settings,QObject* parent):QObject(
     connect(&daRetry_,&QTimer::timeout,this,&DonationEngine::daConnect);
     dpTimer_.setSingleShot(true);
     connect(&dpTimer_,&QTimer::timeout,this,&DonationEngine::dpPoll);
-    connect(&websocket_,&QWebSocket::connected,this,[this] {
+    connect(&websocket_,&QWebSocket::connected,this,[this] { sn::CpuScope snCallbackScope; 
         if(closing_)return;
         QJsonObject hello{{"id",1},{"params",QJsonObject{{"token",daSocketToken_}}}};
-        websocket_.sendTextMessage(QString::fromUtf8(QJsonDocument(hello).toJson(QJsonDocument::Compact)));
+        sendFrame(QString::fromUtf8(QJsonDocument(hello).toJson(QJsonDocument::Compact)));
     });
     connect(&websocket_,&QWebSocket::textMessageReceived,this,&DonationEngine::daReceive);
-    connect(&websocket_,&QWebSocket::disconnected,this,[this]{if(!closing_&&!resettingSocket_)daReconnect();});
-    connect(&websocket_,&QWebSocket::errorOccurred,this,[this](QAbstractSocket::SocketError){if(!closing_&&!resettingSocket_)daReconnect();});
+    connect(&websocket_,&QWebSocket::disconnected,this,[this]{ sn::CpuScope snCallbackScope; if(!closing_&&!resettingSocket_)daReconnect();});
+    connect(&websocket_,&QWebSocket::errorOccurred,this,[this](QAbstractSocket::SocketError){ sn::CpuScope snCallbackScope; if(!closing_&&!resettingSocket_)daReconnect();});
 }
-void DonationEngine::state(QString& dest,const QString& value) {if(dest!=value){dest=value;Q_EMIT updated();}}
+void DonationEngine::state(QString& dest,const QString& value) {
+    sn::CpuScope snCpuScope;if(dest!=value){dest=value;Q_EMIT updated();}}
 void DonationEngine::clearConnections() {
+    sn::CpuScope snCpuScope;
     ++daEpoch_;++dpEpoch_;daRetry_.stop();dpTimer_.stop();
     resettingSocket_=true;websocket_.abort();resettingSocket_=false;
     sender_.abortAll();
 }
-void DonationEngine::stop(){closing_=true;clearConnections();}
+void DonationEngine::stop(){
+    sn::CpuScope snCpuScope;closing_=true;clearConnections();}
 void DonationEngine::setLive(bool active) {
+    sn::CpuScope snCpuScope;
     const bool changed=(live_!=active);
     live_=active;
     if(!active && store_->current.donations.onlyLive) {
@@ -225,6 +236,7 @@ void DonationEngine::setLive(bool active) {
     if(changed && store_->current.donations.onlyLive)configure();
 }
 void DonationEngine::configure() {
+    sn::CpuScope snCpuScope;
     if(closing_)return;
     const auto& s=store_->current.donations;
     if(s.enabled)fetchRates();
@@ -249,6 +261,7 @@ void DonationEngine::configure() {
         s.dpToken.isEmpty()?"Not configured":!s.legacyApiOptIn?"API verification required":"Waiting for stream");
 }
 void DonationEngine::daConnect() {
+    sn::CpuScope snCpuScope;
     if(daSignature_.isEmpty()||closing_)return;
     state(daStatus_,"Connecting");
     QNetworkRequest request(QUrl("https://www.donationalerts.com/api/v1/user/oauth"));
@@ -256,8 +269,8 @@ void DonationEngine::daConnect() {
     request.setTransferTimeout(10000);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
     const quint64 epoch=daEpoch_;
-    QNetworkReply* r=http_.get(request);
-    connect(r,&QNetworkReply::finished,this,[this,r,epoch]{
+    QNetworkReply* r=sn::watchReply(http_.get(request));
+    connect(r,&QNetworkReply::finished,this,[this,r,epoch]{ sn::CpuScope snCallbackScope; 
         int status=r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray data=r->readAll();r->deleteLater();
         if(epoch!=daEpoch_||closing_||daSignature_.isEmpty())return;
@@ -270,6 +283,7 @@ void DonationEngine::daConnect() {
     });
 }
 void DonationEngine::daSubscribe(const QString& clientId) {
+    sn::CpuScope snCpuScope;
     QNetworkRequest request(QUrl("https://www.donationalerts.com/api/v1/centrifuge/subscribe"));
     request.setRawHeader("Authorization",("Bearer "+daSignature_).toUtf8());
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");
@@ -277,8 +291,8 @@ void DonationEngine::daSubscribe(const QString& clientId) {
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
     const auto data=QJsonDocument(QJsonObject{{"channels",QJsonArray{daChannel_}},{"client",clientId}}).toJson();
     const quint64 epoch=daEpoch_;
-    QNetworkReply* r=http_.post(request,data);
-    connect(r,&QNetworkReply::finished,this,[this,r,epoch]{
+    QNetworkReply* r=sn::watchReply(http_.post(request,data),data);
+    connect(r,&QNetworkReply::finished,this,[this,r,epoch]{ sn::CpuScope snCallbackScope; 
         int status=r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QJsonDocument json=QJsonDocument::fromJson(r->readAll());r->deleteLater();
         if(epoch!=daEpoch_||closing_)return;
@@ -288,12 +302,14 @@ void DonationEngine::daSubscribe(const QString& clientId) {
         const QString token=channels.first().toObject().value("token").toString();
         if(token.isEmpty()){state(daStatus_,"Channel token missing");return;}
         QJsonObject sub{{"id",2},{"method",1},{"params",QJsonObject{{"channel",daChannel_},{"token",token}}}};
-        websocket_.sendTextMessage(QString::fromUtf8(QJsonDocument(sub).toJson(QJsonDocument::Compact)));
+        sendFrame(QString::fromUtf8(QJsonDocument(sub).toJson(QJsonDocument::Compact)));
     });
 }
 void DonationEngine::daReceive(const QString& raw) {
+    sn::CpuScope snCpuScope;
+    const QByteArray payloadBytes=raw.toUtf8();sn::Meter::instance().received(uint64_t(payloadBytes.size()));
     if(!store_->current.donations.enabled || !store_->current.donations.daEnabled)return;
-    const QJsonObject packet=QJsonDocument::fromJson(raw.toUtf8()).object();
+    const QJsonObject packet=QJsonDocument::fromJson(payloadBytes).object();
     const int id=packet.value("id").toInt();
     const QJsonObject result=packet.value("result").toObject();
     if(id==1 && result.contains("client")) {daSubscribe(result.value("client").toString());return;}
@@ -313,6 +329,7 @@ void DonationEngine::daReceive(const QString& raw) {
     if(!d.id.isEmpty())onDonation(d);
 }
 void DonationEngine::daReconnect() {
+    sn::CpuScope snCpuScope;
     if(daSignature_.isEmpty()||closing_)return;
     resettingSocket_=true;websocket_.abort();resettingSocket_=false;daRetry_.stop();
     daBackoff_=std::min(daBackoff_+1,7);
@@ -320,6 +337,7 @@ void DonationEngine::daReconnect() {
     state(daStatus_,"Reconnecting");daRetry_.start(ms);
 }
 void DonationEngine::dpPoll() {
+    sn::CpuScope snCpuScope;
     if(dpSignature_.isEmpty()||closing_)return;
     // EXPERIMENTAL / account-verification gated. DonatePay official API is login-gated.
     // A legacy GET endpoint and >=30s interval are used only with explicit opt-in.
@@ -333,8 +351,8 @@ void DonationEngine::dpPoll() {
     req.setTransferTimeout(10000);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
     const quint64 epoch=dpEpoch_;
-    QNetworkReply* r=http_.get(req);
-    connect(r,&QNetworkReply::finished,this,[this,r,epoch]{
+    QNetworkReply* r=sn::watchReply(http_.get(req));
+    connect(r,&QNetworkReply::finished,this,[this,r,epoch]{ sn::CpuScope snCallbackScope; 
         int status=r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QJsonDocument json=QJsonDocument::fromJson(r->readAll());r->deleteLater();
         if(epoch!=dpEpoch_||closing_||dpSignature_.isEmpty())return;
@@ -365,12 +383,14 @@ void DonationEngine::dpPoll() {
     });
 }
 void DonationEngine::dpReconnect(){
+    sn::CpuScope snCpuScope;
     if(dpSignature_.isEmpty()||closing_)return;
     dpBackoff_=std::min(dpBackoff_+1,7);
     const int ms=std::max(30000,std::min(120000,30000*(1<<std::min(dpBackoff_,2))));
     dpTimer_.start(ms);
 }
 void DonationEngine::onDonation(const Donation& d) {
+    sn::CpuScope snCpuScope;
     if(closing_)return;
     const auto& cfg=store_->current.donations;
     if(!cfg.enabled || d.isTest)return;
@@ -390,17 +410,18 @@ void DonationEngine::onDonation(const Donation& d) {
     deliver(key,d,level);
 }
 void DonationEngine::deliver(const QString& key,const Donation& d,int level) {
+    sn::CpuScope snCpuScope;
     const auto& s=store_->current;
     const QString body=donationMessage(d,s.donations,level,streamUrl(s));
     Snapshot snap=makeSnapshot(s);
-    auto route=[this,&snap,&body,&key](Channel channel,bool active,const QString& name){
+    auto route=[this,&snap,&body,&key](Channel channel,bool active,const QString& name){ sn::CpuScope snCallbackScope; 
         if(!active)return;
         if(store_->current.donations.onlyLive && !live_){ledger_.setStatus(key,name,"cancelled");return;}
         const bool valid=channel==Channel::Telegram?validTelegram(snap.token,snap.chat):validDiscord(snap.webhook);
         if(!valid){ledger_.setStatus(key,name,"not_configured");return;}
         if(!ledger_.setStatus(key,name,"inflight"))return; // persist before POST
         openJobs_.insert(key+"|"+name);
-        sender_.send(channel,snap,body,[this,key,name](Delivery result){
+        sender_.send(channel,snap,body,[this,key,name](Delivery result){ sn::CpuScope snCallbackScope; 
             openJobs_.remove(key+"|"+name);
             if(closing_)return;
             const QString status=result.status==Outcome::Sent?"sent":result.status==Outcome::Failed?"failed":"unknown";
@@ -412,9 +433,12 @@ void DonationEngine::deliver(const QString& key,const Donation& d,int level) {
     route(Channel::Discord,s.donations.toDiscord&&s.discordEnabled,"discord");
     Q_EMIT updated();
 }
-void DonationEngine::checkDonationAlerts() {if(!daSignature_.isEmpty()){daRetry_.stop();websocket_.abort();daConnect();}}
-void DonationEngine::checkDonatePay() {if(!dpSignature_.isEmpty()){dpTimer_.stop();dpPrimed_=false;dpPoll();}}
+void DonationEngine::checkDonationAlerts() {
+    sn::CpuScope snCpuScope;if(!daSignature_.isEmpty()){daRetry_.stop();websocket_.abort();daConnect();}}
+void DonationEngine::checkDonatePay() {
+    sn::CpuScope snCpuScope;if(!dpSignature_.isEmpty()){dpTimer_.stop();dpPrimed_=false;dpPoll();}}
 void DonationEngine::previewTest(int level) {
+    sn::CpuScope snCpuScope;
     const auto& s=store_->current;
     Donation d; d.service="Stream Notify TEST";d.id="test";d.currency="RUB";const auto thresholds=s.donations.thresholds.value("RUB");
     d.amount=thresholds.size()==3 && level>=0 && level<3?thresholds.at(level):100;
@@ -423,26 +447,28 @@ void DonationEngine::previewTest(int level) {
     Snapshot snap=makeSnapshot(s);
     // Manual test intentionally avoids ledger, never claims a real donation ID.
     if(s.donations.toTelegram&&s.telegramEnabled&&validTelegram(snap.token,snap.chat))
-        sender_.send(Channel::Telegram,snap,"🧪 TEST / ТЕСТ\n"+body,[this](Delivery){Q_EMIT updated();});
+        sender_.send(Channel::Telegram,snap,"🧪 TEST / ТЕСТ\n"+body,[this](Delivery){ sn::CpuScope snCallbackScope; Q_EMIT updated();});
     if(s.donations.toDiscord&&s.discordEnabled&&validDiscord(snap.webhook))
-        sender_.send(Channel::Discord,snap,"🧪 TEST / ТЕСТ\n"+body,[this](Delivery){Q_EMIT updated();});
+        sender_.send(Channel::Discord,snap,"🧪 TEST / ТЕСТ\n"+body,[this](Delivery){ sn::CpuScope snCallbackScope; Q_EMIT updated();});
 }
 
 QString DonationEngine::ratesStatus() const {
+    sn::CpuScope snCpuScope;
     const auto data=savedRates();
     if(!data.value("rub_per_unit").toObject().isEmpty())
         return "CBR / "+data.value("date").toString()+" / "+QString::number(data.value("rub_per_unit").toObject().size())+" currencies";
     return ratesLoading_?"Loading exchange rates":"No rates file: RUB only";
 }
 void DonationEngine::fetchRates(bool manual) {
+    sn::CpuScope snCpuScope;
     if(closing_ || ratesLoading_)return;
     if(!manual && (ratesAttempted_ || !savedRates().value("rub_per_unit").toObject().isEmpty()))return;
     ratesAttempted_=true;ratesLoading_=true;
     QNetworkRequest req(QUrl("https://www.cbr-xml-daily.ru/daily_json.js"));
     req.setTransferTimeout(15000);
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
-    auto* reply=http_.get(req);
-    connect(reply,&QNetworkReply::finished,this,[this,reply] {
+    auto* reply=sn::watchReply(http_.get(req));
+    connect(reply,&QNetworkReply::finished,this,[this,reply] { sn::CpuScope snCallbackScope; 
         ratesLoading_=false;
         const bool ok=reply->error()==QNetworkReply::NoError &&
             reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200;
@@ -457,7 +483,7 @@ void DonationEngine::fetchRates(bool manual) {
                 const double nominal=row.value("Nominal").toDouble(0);
                 const double value=row.value("Value").toDouble(0);
                 const QString code=row.value("CharCode").toString().toUpper();
-                if(QRegularExpression("^[A-Z]{3}$").match(code).hasMatch() &&
+                if(QRegularExpression("^[A-Z]{ sn::CpuScope snCallbackScope; 3}$").match(code).hasMatch() &&
                     std::isfinite(nominal)&&nominal>0&&std::isfinite(value)&&value>0)
                     rates[code]=value/nominal;
             }
@@ -474,4 +500,19 @@ void DonationEngine::fetchRates(bool manual) {
         Q_EMIT updated();
     });
     Q_EMIT updated();
+}
+
+void DonationEngine::sendFrame(const QString& data) {
+    sn::CpuScope snCpuScope;
+    sn::CpuScope scope;
+    const auto sent=websocket_.sendTextMessage(data);
+    if(sent>0)sn::Meter::instance().sent(uint64_t(sent));
+}
+void DonationEngine::account(sn::BufferCensus& census) const {
+    sn::CpuScope snCpuScope;
+    for(const auto* value:{&daStatus_,&dpStatus_,&daSignature_,&dpSignature_,&daSocketToken_,&daChannel_})census.add(*value);
+    for(const auto& value:dpBaseline_)census.add(value);
+    for(const auto& value:openJobs_)census.add(value);
+    sender_.account(census);
+    for(auto* reply:http_.findChildren<QNetworkReply*>())sn::accountReply(census,reply);
 }

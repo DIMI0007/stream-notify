@@ -116,3 +116,15 @@ target_link_libraries(stream-notify-discord-tests PRIVATE Qt6::Core)
 add_test(NAME discord-everyone-payload COMMAND stream-notify-discord-tests)
 set_tests_properties(discord-everyone-payload PROPERTIES
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+
+# Pure output history checks and isolated resource accounting (localhost only).
+add_executable(stream-notify-output-tests tests/test_output_health.cpp)
+target_compile_options(stream-notify-output-tests PRIVATE /UNDEBUG /utf-8)
+add_test(NAME independent-output-health COMMAND stream-notify-output-tests)
+add_executable(stream-notify-resource-tests tests/test_resources.cpp)
+target_link_libraries(stream-notify-resource-tests PRIVATE Qt6::Core Qt6::Network)
+target_compile_options(stream-notify-resource-tests PRIVATE /UNDEBUG /utf-8)
+target_compile_definitions(stream-notify-resource-tests PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX QT_NO_KEYWORDS)
+add_test(NAME plugin-resource-accounting COMMAND stream-notify-resource-tests)
+set_tests_properties(plugin-resource-accounting PROPERTIES
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")

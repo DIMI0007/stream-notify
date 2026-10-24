@@ -1,4 +1,5 @@
 #include "net.hpp"
+#include "resources.hpp"
 #include "discord_payload.hpp"
 #include <QNetworkRequest>
 #include <QNetworkReply>
@@ -16,11 +17,13 @@ Sender::Sender(QObject* parent) : QObject(parent) {}
 
 void Sender::send(Channel channel, const Snapshot& s, const QString& message, Completion done)
 {
+    sn::CpuScope snCpuScope;
     if(!QSslSocket::supportsSsl()) {
         done({Outcome::Failed,"HTTPS unavailable: Qt TLS module missing. Reinstall the complete Stream Notify folder.",0});
         return;
     }
-    auto task = std::make_shared<Task>();
+    tasks_.erase(std::remove_if(tasks_.begin(),tasks_.end(),[](const auto& item){ sn::CpuScope snCallbackScope; return item.expired();}),tasks_.end());
+    auto task = std::make_shared<Task>();tasks_.push_back(task);
     task->channel = channel;
     task->s = s;
     task->message = message;
@@ -31,6 +34,7 @@ void Sender::send(Channel channel, const Snapshot& s, const QString& message, Co
 
 void Sender::start(const std::shared_ptr<Task>& task)
 {
+    sn::CpuScope snCpuScope;
     if (task->epoch != epoch_) { task->done({Outcome::Cancelled, "Cancelled", task->attempts}); return; }
     ++task->attempts;
     QUrl url;
@@ -63,9 +67,10 @@ void Sender::start(const std::shared_ptr<Task>& task)
     req.setHeader(QNetworkRequest::UserAgentHeader, "StreamNotify/1.0 (OBS plugin)");
     req.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
     req.setTransferTimeout(10000);
-    QNetworkReply* reply = nam_.post(req, QJsonDocument(payload).toJson(QJsonDocument::Compact));
+    task->body=QJsonDocument(payload).toJson(QJsonDocument::Compact);
+    QNetworkReply* reply = sn::watchReply(nam_.post(req,task->body),task->body);
     active_.insert(reply);
-    connect(reply, &QNetworkReply::finished, this, [this, task, reply] {
+    connect(reply, &QNetworkReply::finished, this, [this, task, reply] { sn::CpuScope snCallbackScope; 
         active_.remove(reply);
         if (task->epoch != epoch_) { reply->deleteLater(); return; }
         const int http = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -92,7 +97,7 @@ void Sender::start(const std::shared_ptr<Task>& task)
                 if (!valid || seconds <= 0) seconds = 2;
             }
             const int delay = std::clamp(int(seconds * 1000), 1000, 15000);
-            QTimer::singleShot(delay, this, [this, task] { start(task); });
+            QTimer::singleShot(delay, this, [this, task] { sn::CpuScope snCallbackScope;  start(task); });
             return;
         }
         if (http == 429) { task->done({Outcome::Failed, "Rate limit (429)", task->attempts}); return; }
@@ -108,7 +113,7 @@ void Sender::start(const std::shared_ptr<Task>& task)
             // pre-delivery failure signal to allow a bounded retry.
             const bool neverConnected = (http == 0) && (net == QNetworkReply::HostNotFoundError || net == QNetworkReply::ConnectionRefusedError);
             if (neverConnected && task->attempts < 3) {
-                QTimer::singleShot(1500 * task->attempts, this, [this, task] { start(task); });
+                QTimer::singleShot(1500 * task->attempts, this, [this, task] { sn::CpuScope snCallbackScope;  start(task); });
                 return;
             }
             task->done({neverConnected ? Outcome::Failed : Outcome::Unknown,
@@ -126,7 +131,16 @@ void Sender::start(const std::shared_ptr<Task>& task)
 
 void Sender::abortAll()
 {
+    sn::CpuScope snCpuScope;
     ++epoch_;
     const auto pending = active_.values();
     for (QNetworkReply* reply : pending) if (reply) reply->abort();
+}
+
+void Sender::account(sn::BufferCensus& census) const {
+    sn::CpuScope snCpuScope;
+    for(const auto& item:tasks_)if(auto task=item.lock()) {
+        sn::account(census,task->s);census.add(task->message);census.add(task->body);
+    }
+    for(auto* reply:active_)sn::accountReply(census,reply);
 }

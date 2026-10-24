@@ -1,4 +1,5 @@
 #include "settings.hpp"
+#include "resources.hpp"
 #include <obs-module.h>
 #include <util/bmem.h>
 #include <QByteArray>
@@ -79,6 +80,7 @@ SettingsStore::SettingsStore(QObject* parent) : QObject(parent), path_(configPat
 
 bool SettingsStore::load()
 {
+    sn::CpuScope snCpuScope;
     if (path_.isEmpty()) { error_ = "OBS plugin config path unavailable"; return false; }
     QFile f(path_);
     if (!f.exists()) return true;
@@ -150,6 +152,7 @@ bool SettingsStore::load()
 
 bool SettingsStore::save()
 {
+    sn::CpuScope snCpuScope;
     if (path_.isEmpty()) { error_ = "OBS plugin config path unavailable"; Q_EMIT persisted(false); return false; }
     if (!QDir().mkpath(QFileInfo(path_).absolutePath())) { error_ = "Cannot create settings folder"; Q_EMIT persisted(false); return false; }
     const QByteArray t = protect(current.telegramToken);
@@ -215,10 +218,13 @@ bool SettingsStore::save()
     Q_EMIT persisted(true);
     return true;
 }
-void SettingsStore::scheduleSave() { saveTimer_.start(); }
-void SettingsStore::flush() { if (saveTimer_.isActive()) { saveTimer_.stop(); save(); } }
+void SettingsStore::scheduleSave() {
+    sn::CpuScope snCpuScope; saveTimer_.start(); }
+void SettingsStore::flush() {
+    sn::CpuScope snCpuScope; if (saveTimer_.isActive()) { saveTimer_.stop(); save(); } }
 void SettingsStore::addEvent(const QString& msg)
 {
+    sn::CpuScope snCpuScope;
     current.events.prepend(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss") + "  " + msg);
     while (current.events.size() > 100) current.events.removeLast();
     scheduleSave();

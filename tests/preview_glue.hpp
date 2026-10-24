@@ -11,7 +11,11 @@
 // Isolate the real Qt dock from OBS host globals during UI smoke testing.
 inline const char* streamPreviewLocale(){return "ru-RU";}
 inline bool streamPreviewBuiltinLive=false;
-struct StreamPreviewOutput {bool network;bool active;};
+struct StreamPreviewOutput {
+    bool network;bool active;
+    bool reconnecting=false;uint64_t bytes=0,frames=0,dropped=0;double targetKbps=6000;
+    QString name,platform;
+};
 inline std::vector<StreamPreviewOutput> streamPreviewOutputs;
 inline bool streamPreviewLive(){return streamPreviewBuiltinLive;}
 inline void streamPreviewEnum(bool (*callback)(void*,obs_output_t*),void* context) {

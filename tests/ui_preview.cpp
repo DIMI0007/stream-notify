@@ -14,8 +14,30 @@
 #include <QLineEdit>
 #include <iostream>
 struct DockPreview {
+    static QVector<sn::OutputView> outputViews(const StreamDock& panel){return panel.monitor_.views();}
     static bool live(const StreamDock& panel){return panel.broadcasting_;}
     static quint64 session(const StreamDock& panel){return panel.generation_;}
+    static void monitorDemo(StreamDock& panel) {
+        panel.telemetryTimer_.stop();panel.streamStateTimer_.stop();
+        streamPreviewOutputs.clear();
+        StreamPreviewOutput youtube{true,true};youtube.name="Aitum YouTube";youtube.platform="YouTube";
+        StreamPreviewOutput twitch{true,true};twitch.name="Aitum Twitch";twitch.platform="Twitch";
+        streamPreviewOutputs={youtube,twitch};
+        for(int64_t ms=0;ms<=30000;ms+=2000) {
+            if(ms) {
+                streamPreviewOutputs[0].bytes+=1500000;streamPreviewOutputs[0].frames+=120;
+                streamPreviewOutputs[1].bytes+=ms>=12000?650000:1500000;streamPreviewOutputs[1].frames+=120;
+                if(ms==20000)streamPreviewOutputs[1].dropped=12;
+            }
+            panel.monitor_.sample(ms);
+        }
+        panel.broadcasting_=true;panel.page_=StreamDock::Page::Home;panel.phase_=StreamDock::Phase::Idle;
+        panel.rebuild();
+    }
+    static void stopMonitorDemo(StreamDock& panel) {
+        streamPreviewOutputs.clear();panel.monitor_.clear();panel.broadcasting_=false;
+        panel.telemetryTimer_.start();panel.streamStateTimer_.start();panel.rebuild();
+    }
     static Settings demoConnections(StreamDock& panel) {
         const Settings original=panel.store_.current;
         auto& s=panel.store_.current;
@@ -79,7 +101,12 @@ int main(int argc,char** argv) {
             if(button->text().contains(text) && button->isEnabled()){button->click();pump();return true;}
         std::cerr<<"Missing UI navigation control: "<<text.toStdString()<<"\n";return false;
     };
-    auto save=[&](const QString& name){pump();return panel.grab().save(output+"/"+name+".png");};
+    auto save=[&](const QString& name){
+        pump();
+        for(auto* label:panel.findChildren<QLabel*>())
+            if(label->text().contains(QString::fromUtf8("Сохранено")) || label->text().contains(QString::fromUtf8("Автосохранение")))return false;
+        return panel.grab().save(output+"/"+name+".png");
+    };
     if(!save("01-home"))return 1;
     // Empty-state actions should open and reveal the correct settings field.
     if(!click(QString::fromUtf8("Добавить")))return 28;
@@ -92,6 +119,7 @@ int main(int argc,char** argv) {
     if(!revealed)return 30;
     if(!click(QString::fromUtf8("Основное")) || !click(QString::fromUtf8("Настроить")) || !save("02-connections"))return 31;
     if(!panel.findChild<QLineEdit*>("TelegramToken"))return 32;
+    if(panel.findChild<QWidget*>("PluginResources") || panel.findChild<QWidget*>("OutputMonitor"))return 42;
     if(!click(QString::fromUtf8("Сообщение")) || !save("03-message"))return 1;
     if(!click(QString::fromUtf8("Интерфейс")) || !click(QString("English")))return 1;
     if(!click(QString::fromUtf8("Русский")) || !save("04-interface"))return 1;
@@ -152,6 +180,16 @@ int main(int argc,char** argv) {
     DockPreview::restoreSettings(panel,originalSettings);pump();
     for(const auto& timer:readyTimers)if(timer)return 38;
     std::cout<<"Setup links, donation idle reasons and visible-only ready indicators passed\\n";
+    const Settings monitorSettings=DockPreview::demoConnections(panel);pump();
+    DockPreview::monitorDemo(panel);pump();
+    if(!panel.findChild<QWidget*>("OutputMonitor") || !panel.findChild<QWidget*>("PluginResources"))return 40;
+    const auto outputs=DockPreview::outputViews(panel);
+    if(outputs.size()!=2 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem)return 41;
+    if(!save("16-monitoring-home"))return 1;
+    for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+    if(!save("17-monitoring-bottom"))return 1;
+    DockPreview::stopMonitorDemo(panel);pump();
+    DockPreview::restoreSettings(panel,monitorSettings);pump();
     DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
     QPointer<QTimer> pulse=panel.findChild<QTimer*>("CountdownPulseTimer");
     if(!pulse || pulse->isActive())return 22; // No animation outside the final ten seconds.

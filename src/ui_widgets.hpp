@@ -1,4 +1,5 @@
 #pragma once
+#include "resources.hpp"
 #include <QCheckBox>
 #include <QFontMetrics>
 #include <algorithm>
@@ -31,6 +32,7 @@ public:
 protected:
     bool hitButton(const QPoint& point) const override {return rect().contains(point);}
     void paintEvent(QPaintEvent*) override {
+        sn::CpuScope snCpuScope;
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         p.setOpacity(isEnabled()?1.0:0.45);
         const QRectF track(0,(height()-18)/2.0,32,18);
@@ -55,6 +57,7 @@ public:
     }
 protected:
     void paintEvent(QPaintEvent*) override {
+        sn::CpuScope snCpuScope;
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);p.scale(width()/32.0,height()/32.0);
         if(!mark_.isNull()) {
             // The same 28px footprint as other services. Keep the full mark,
@@ -144,6 +147,11 @@ inline QIcon streamNavIcon(const QString& kind,bool active=false) {
         p.drawEllipse(QPointF(12,12),9,9);
         QFont font=p.font();font.setPixelSize(15);font.setBold(true);p.setFont(font);
         p.drawText(QRectF(1,1,22,22),Qt::AlignCenter,QString::fromUtf8("₽"));
+    } else if(kind=="info") {
+        p.drawEllipse(QPointF(12,12),9,9);p.drawLine(12,11,12,17);p.drawPoint(12,7);
+    } else if(kind=="cpu") {
+        p.drawRoundedRect(QRectF(6,6,12,12),1,1);p.drawRect(QRectF(9,9,6,6));
+        for(int a=8;a<=16;a+=4){p.drawLine(a,2,a,6);p.drawLine(a,18,a,22);p.drawLine(2,a,6,a);p.drawLine(18,a,22,a);}
     } else if(kind=="stop") {
         p.setPen(Qt::NoPen);p.setBrush(color);p.drawRoundedRect(QRectF(6,6,12,12),2,2);
     } else if(kind=="copy") {
@@ -174,6 +182,7 @@ public:
     }
 protected:
     void paintEvent(QPaintEvent*) override {
+        sn::CpuScope snCpuScope;
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         const QColor color=state_==0?QColor("#00df89"):state_==1?QColor("#ffcd57"):QColor("#ff647e");
         QColor haloColor=color;haloColor.setAlpha(55);
@@ -204,6 +213,7 @@ public:
     QSize minimumSizeHint() const override {return sizeHint();}
 protected:
     void paintEvent(QPaintEvent*) override {
+        sn::CpuScope snCpuScope;
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         QLinearGradient fill(0,0,0,height());
         fill.setColorAt(0,active_?QColor("#10382d"):QColor("#202936"));
@@ -243,6 +253,7 @@ protected:
         blink_.stop();dim_=false;QWidget::hideEvent(event);
     }
     void paintEvent(QPaintEvent*) override {
+        sn::CpuScope snCpuScope;
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         QColor green("#00df8c");green.setAlpha(dim_?100:255);
         p.setPen(Qt::NoPen);p.setBrush(green);p.drawEllipse(QPointF(4,height()/2.0),3,3);

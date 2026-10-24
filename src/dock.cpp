@@ -1,6 +1,8 @@
 #include "dock.hpp"
 #include "stream_activity.hpp"
 #include "ui_widgets.hpp"
+#include "telemetry_widgets.hpp"
+#include "resources.hpp"
 #include "telegram_channel.hpp"
 #include <obs.h>
 #include <obs-frontend-api.h>
@@ -147,7 +149,7 @@ class CreditFooter final : public QWidget {
 public:
     explicit CreditFooter(QWidget* parent=nullptr):QWidget(parent) {
         setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);
-        setAccessibleName("Developed by OTMOPOZOK — YouTube");
+        setAccessibleName("developed by OTMOPOZOK — YouTube");
         setToolTip("https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/");
     }
 protected:
@@ -155,7 +157,7 @@ protected:
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         QFont f=font();f.setPixelSize(11);p.setFont(f);
         const QFontMetricsF m(f);
-        const QString prefix="Developed by ",nick="OTMOPOZOK";
+        const QString prefix="developed by ",nick="OTMOPOZOK";
         const qreal x=std::max(qreal(2),(width()-m.horizontalAdvance(prefix+nick))/2);
         const qreal baseline=(height()-m.height())/2+m.ascent();
         const qreal nickX=x+m.horizontalAdvance(prefix);
@@ -225,29 +227,38 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     streamStateTimer_.setInterval(1000);
     connect(&streamStateTimer_,&QTimer::timeout,this,&StreamDock::refreshStreamingState);
     streamStateTimer_.start();
+    telemetryClock_.start();usage_=usageSampler_.sample(0);
+    telemetryTimer_.setInterval(2000);
+    connect(&telemetryTimer_,&QTimer::timeout,this,&StreamDock::refreshTelemetry);
+    telemetryTimer_.start();refreshTelemetry();
     rebuild();
 }
 StreamDock::~StreamDock() { shutdown(); }
 
 bool StreamDock::isRu() const
 {
+    sn::CpuScope snCpuScope;
     if (store_.current.locale == "ru") return true;
     if (store_.current.locale == "en") return false;
     const char* locale = obs_get_locale();
     return locale && QString::fromUtf8(locale).startsWith("ru", Qt::CaseInsensitive);
 }
 QString StreamDock::uiText(const char* ru, const char* en) const
-{ return QString::fromUtf8(isRu() ? ru : en); }
+{
+    sn::CpuScope snCpuScope; return QString::fromUtf8(isRu() ? ru : en); }
 QLabel* StreamDock::label(const QString& text, const QString& name)
 {
+    sn::CpuScope snCpuScope;
     auto* w = paragraph(text);
     if(!name.isEmpty()) w->setObjectName(name);
     return w;
 }
 void StreamDock::section(QVBoxLayout* l, const QString& text)
-{ l->addWidget(label(text, "Section")); }
+{
+    sn::CpuScope snCpuScope; l->addWidget(label(text, "Section")); }
 QWidget* StreamDock::card(QVBoxLayout** l)
 {
+    sn::CpuScope snCpuScope;
     QWidget* w = new QWidget;
     w->setObjectName("Card");
     *l = column(w, store_.current.compact ? 3 : 5, store_.current.compact ? 5 : 8);
@@ -255,20 +266,29 @@ QWidget* StreamDock::card(QVBoxLayout** l)
     (*l)->setAlignment(Qt::AlignTop);
     return w;
 }
-void StreamDock::changeSettings() { store_.scheduleSave(); donationConfigure_.start(); }
-void StreamDock::showPage(Page page) { page_ = page; rebuild(); }
+void StreamDock::changeSettings() {
+    sn::CpuScope snCpuScope; store_.scheduleSave(); donationConfigure_.start(); }
+void StreamDock::showPage(Page page) {
+    sn::CpuScope snCpuScope; page_ = page; rebuild(); }
 void StreamDock::openConnections(const QString& field) {
+    sn::CpuScope snCpuScope;
     pendingFocus_=field;showPage(Page::Connections);
 }
-void StreamDock::showPhase(Phase phase) { phase_ = phase; rebuild(); }
+void StreamDock::showPhase(Phase phase) {
+    sn::CpuScope snCpuScope; phase_ = phase; rebuild(); }
 void StreamDock::updateSaved(bool success)
 {
-    if(saveLabel_) saveLabel_->setText(success ? uiText("✓ Сохранено", "✓ Saved")
-                                              : uiText("⚠ Ошибка сохранения", "⚠ Save failed"));
+    sn::CpuScope snCpuScope;
+    if(!success) {
+        const QString error=uiText("Не удалось сохранить настройки. Проверьте доступ к папке OBS.",
+            "Settings could not be saved. Check access to the OBS configuration folder.");
+        if(statusText_!=error){statusText_=error;rebuild();}
+    }
 }
 
 void StreamDock::rebuild()
 {
+    sn::CpuScope snCpuScope;
     // Never destroy a control while Qt is still delivering its input signal.
     // Coalesce changes and let the current event return before replacing widgets.
     if(shuttingDown_ || rebuildPending_)return;
@@ -281,6 +301,7 @@ void StreamDock::rebuild()
 
 void StreamDock::rebuildNow()
 {
+    sn::CpuScope snCpuScope;
     // All text inputs continuously update SettingsStore::current, so rebuilding
     // for a language switch never discards uncommitted typed text.
     while (QLayoutItem* item = root_->takeAt(0)) {
@@ -289,7 +310,6 @@ void StreamDock::rebuildNow()
     }
     root_->setSpacing(store_.current.compact ? 3 : 5);
     title_ = nullptr;
-    saveLabel_ = nullptr;
     daStatusLabel_ = nullptr; dpStatusLabel_ = nullptr; donationJournalLabel_ = nullptr;
     central_ = nullptr;
     auto* header = new QWidget;
@@ -329,11 +349,6 @@ void StreamDock::rebuildNow()
         scroll->setWidget(central_);central_=scroll;
     }
     root_->addWidget(central_, 1);
-    if (phase_ == Phase::Idle) {
-        saveLabel_ = label(uiText("Автосохранение", "Autosave"), "Hint");
-        saveLabel_->setAlignment(Qt::AlignCenter);
-        root_->addWidget(saveLabel_);
-    }
     root_->addWidget(new CreditFooter(this));
     if(!pendingFocus_.isEmpty()) {
         QPointer<QLineEdit> field=findChild<QLineEdit*>(pendingFocus_);
@@ -350,6 +365,7 @@ void StreamDock::rebuildNow()
 
 QWidget* StreamDock::buildRegular()
 {
+    sn::CpuScope snCpuScope;
     auto* wrap = new QWidget;
     auto* vertical = column(wrap, 6, 0);
     auto* tabs = new QWidget;
@@ -432,6 +448,7 @@ QWidget* StreamDock::buildRegular()
 
 QWidget* StreamDock::buildHome()
 {
+    sn::CpuScope snCpuScope;
     auto* body = new QWidget;
     auto* outer = column(body, 10, 3);
     QVBoxLayout* v;
@@ -526,12 +543,19 @@ QWidget* StreamDock::buildHome()
     if (!store_.current.lastTelegram.isEmpty()) v->addWidget(label("Telegram: " + store_.current.lastTelegram));
     if (!store_.current.lastDiscord.isEmpty()) v->addWidget(label("Discord: " + store_.current.lastDiscord));
     outer->addWidget(last);
+    auto* outputs=new sn::OutputPanel(isRu());outputs->setObjectName("OutputMonitor");
+    outputs->setStyleSheet("QWidget#OutputMonitor{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
+    outputs->setOutputs(monitor_.views());outputPanel_=outputs;outer->addWidget(outputs);
+    auto* resources=new sn::ResourcePanel(isRu());resources->setObjectName("PluginResources");
+    resources->setStyleSheet("QWidget#PluginResources{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
+    resources->setUsage(usage_);resourcePanel_=resources;outer->addWidget(resources);
     outer->addStretch();
     return body;
 }
 
 QWidget* StreamDock::buildConnections()
 {
+    sn::CpuScope snCpuScope;
     auto* body = new QWidget;
     auto* outer = column(body, 11, 3);
     QVBoxLayout* v;
@@ -664,6 +688,7 @@ QWidget* StreamDock::buildConnections()
 
 QWidget* StreamDock::buildMessage()
 {
+    sn::CpuScope snCpuScope;
     auto* body = new QWidget;
     auto* outer = column(body, 11, 3);
     QVBoxLayout* v;
@@ -728,6 +753,7 @@ QWidget* StreamDock::buildMessage()
 
 QWidget* StreamDock::buildDonations()
 {
+    sn::CpuScope snCpuScope;
     auto* body = new QWidget;
     auto* outer = column(body, 11, 3);
     QVBoxLayout* v;
@@ -925,6 +951,7 @@ QWidget* StreamDock::buildDonations()
 
 QWidget* StreamDock::buildInterface()
 {
+    sn::CpuScope snCpuScope;
     auto* body = new QWidget;
     auto* outer = column(body, 11, 3);
     QVBoxLayout* v;
@@ -1067,6 +1094,7 @@ private:
 
 QWidget* StreamDock::buildCountdown()
 {
+    sn::CpuScope snCpuScope;
     auto* body = new QWidget;
     body->setObjectName("PageBody");
     auto* v = column(body, 12, 7);
@@ -1110,6 +1138,7 @@ QWidget* StreamDock::buildCountdown()
 
 QWidget* StreamDock::buildSending()
 {
+    sn::CpuScope snCpuScope;
     auto* body = new QWidget;
     auto* v = column(body, 15, 20);
     v->addStretch();
@@ -1134,6 +1163,7 @@ QWidget* StreamDock::buildSending()
 
 QString StreamDock::statusName(const Delivery& d) const
 {
+    sn::CpuScope snCpuScope;
     switch(d.status) {
         case Outcome::Disabled: return uiText("Отключён", "Disabled");
         case Outcome::NotConfigured: return uiText("Не настроен", "Not configured");
@@ -1148,6 +1178,7 @@ QString StreamDock::statusName(const Delivery& d) const
 }
 QWidget* StreamDock::buildResult()
 {
+    sn::CpuScope snCpuScope;
     const bool tgSent = telegram_.status == Outcome::Sent;
     const bool dcSent = discord_.status == Outcome::Sent;
     const bool allOk = (!session_.telegram || tgSent) && (!session_.discord || dcSent);
@@ -1208,6 +1239,7 @@ QWidget* StreamDock::buildResult()
 
 void StreamDock::updateCountdown()
 {
+    sn::CpuScope snCpuScope;
     if(phase_ != Phase::Counting) {countdown_.stop(); return;}
     const qint64 msRemaining = qint64(session_.delay)*1000 - elapsed_.elapsed();
     const int remain = int(std::max<qint64>(0, (msRemaining + 999) / 1000));
@@ -1220,6 +1252,7 @@ void StreamDock::updateCountdown()
 
 void StreamDock::refreshStreamingState()
 {
+    sn::CpuScope snCpuScope;
     if(shuttingDown_)return;
     const bool live=anyStreamingOutputActive();
     if(live==broadcasting_)return;
@@ -1228,6 +1261,7 @@ void StreamDock::refreshStreamingState()
 
 void StreamDock::streamStarted()
 {
+    sn::CpuScope snCpuScope;
     if (shuttingDown_) return;
     broadcasting_ = true;
     donation_.setLive(true);
@@ -1259,6 +1293,7 @@ void StreamDock::streamStarted()
 
 void StreamDock::cancelCurrent(const QString& reason)
 {
+    sn::CpuScope snCpuScope;
     if(phase_ != Phase::Counting) return;
     countdown_.stop();
     telegram_.status = (telegram_.status == Outcome::Waiting) ? Outcome::Cancelled : telegram_.status;
@@ -1271,6 +1306,7 @@ void StreamDock::cancelCurrent(const QString& reason)
 
 void StreamDock::streamStopped()
 {
+    sn::CpuScope snCpuScope;
     if (shuttingDown_) return;
     broadcasting_ = false;
     donation_.setLive(false);
@@ -1293,6 +1329,7 @@ void StreamDock::streamStopped()
 
 void StreamDock::dispatch()
 {
+    sn::CpuScope snCpuScope;
     if (phase_ != Phase::Counting) return;
     if (!anyStreamingOutputActive() || !broadcasting_) {cancelCurrent("Stream inactive");return;}
     if (telegram_.status == Outcome::Waiting && !validTelegram(session_.token,session_.chat))
@@ -1320,6 +1357,7 @@ void StreamDock::dispatch()
 
 void StreamDock::recordOutcome(Channel channel, const Delivery& delivery)
 {
+    sn::CpuScope snCpuScope;
     if (channel == Channel::Telegram) telegram_ = delivery;
     else discord_ = delivery;
     const QString name = channel == Channel::Telegram ? "TELEGRAM" : "DISCORD";
@@ -1328,6 +1366,7 @@ void StreamDock::recordOutcome(Channel channel, const Delivery& delivery)
 }
 void StreamDock::complete()
 {
+    sn::CpuScope snCpuScope;
     countdown_.stop();
     store_.current.lastTelegram = statusName(telegram_);
     store_.current.lastDiscord = statusName(discord_);
@@ -1340,6 +1379,7 @@ void StreamDock::complete()
 
 void StreamDock::testChannel(Channel channel)
 {
+    sn::CpuScope snCpuScope;
     const bool tg = channel == Channel::Telegram;
     if(tg ? testingTelegram_ : testingDiscord_) return;
     Snapshot snap = makeSnapshot(store_.current);
@@ -1365,14 +1405,37 @@ void StreamDock::testChannel(Channel channel)
 }
 void StreamDock::shutdown()
 {
+    sn::CpuScope snCpuScope;
     if(shuttingDown_) return;
     shuttingDown_ = true;
     countdown_.stop();
     streamStateTimer_.stop();
+    telemetryTimer_.stop();monitor_.clear();
     resultTimer_.stop();
     ++generation_;
     sender_.abortAll();
     testSender_.abortAll();
     donation_.stop();
     store_.flush();
+}
+
+void StreamDock::refreshTelemetry() {
+    sn::CpuScope snCpuScope;
+    sn::CpuScope scope;
+    if(shuttingDown_)return;
+    monitor_.sample(telemetryClock_.elapsed());
+    uint64_t buffers=usage_.buffers;
+    const bool show=phase_==Phase::Idle && page_==Page::Home && isVisible();
+    if(show) {
+        sn::BufferCensus census;
+        sn::account(census,store_.current);sn::account(census,session_);
+        for(const auto* value:{&statusText_,&transientTelegram_,&transientDiscord_,
+            &telegram_.detail,&discord_.detail})census.add(*value);
+        sender_.account(census);testSender_.account(census);donation_.account(census);monitor_.account(census);
+        for(auto* label:findChildren<QLabel*>())census.add(label->text());
+        for(auto* edit:findChildren<QLineEdit*>())census.add(edit->text());
+        buffers=census.bytes();
+    }
+    usage_=usageSampler_.sample(buffers);
+    if(show){if(outputPanel_)outputPanel_->setOutputs(monitor_.views());if(resourcePanel_)resourcePanel_->setUsage(usage_);}
 }

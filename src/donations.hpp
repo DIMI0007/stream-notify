@@ -54,10 +54,12 @@ public:
     QString ratesStatus() const;
     void checkDonationAlerts();
     void checkDonatePay();
+    void account(sn::BufferCensus& census) const;
     void previewTest(int level); // Explicit test; no fake event is inserted into ledger.
 Q_SIGNALS:
     void updated();
 private:
+    void sendFrame(const QString& data);
     void daConnect();
     void daSubscribe(const QString& clientId);
     void daReceive(const QString& data);
