@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.28...3.30)
 # Adapted for the official obsproject/obs-plugintemplate build environment.
 # Keep the template's cmake/, .github/actions and .github/scripts files.
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/common/bootstrap.cmake" NO_POLICY_SCOPE)
-project(${_name} VERSION ${_version} LANGUAGES CXX)
+project(${_name} VERSION ${_version} LANGUAGES C CXX)
 
 include(compilerconfig)
 include(defaults)
@@ -47,3 +47,5 @@ endif()
 
 # The upstream helper is responsible for the OBS plugin target conventions.
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
+
+install(FILES "$<TARGET_FILE:Qt6::WebSockets>" DESTINATION "${CMAKE_PROJECT_NAME}/bin/64bit")

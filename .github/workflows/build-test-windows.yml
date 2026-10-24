@@ -1,0 +1,29 @@
+name: Build Stream Notify test DLL (Windows)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure OBS and plugin
+        run: cmake --preset windows-ci-x64
+      - name: Build Windows x64 DLL
+        run: cmake --build --preset windows-x64 --config RelWithDebInfo --parallel
+      - name: Stage plugin
+        run: |
+          cmake --install build_x64 --config RelWithDebInfo --prefix package
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item docs/TEST_WINDOWS_RU.md package/INSTALL_RU.md
+          if (!(Test-Path package/stream-notify/bin/64bit/stream-notify.dll)) { throw "Plugin DLL missing" }
+          Get-FileHash package/stream-notify/bin/64bit/*.dll | Format-Table -AutoSize | Out-File package/SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StreamNotify-Test-DLL-Windows-x64
+          path: package/
+          if-no-files-found: error
