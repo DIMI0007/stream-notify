@@ -1,10 +1,15 @@
-Первая тестовая DLL уже собрана для OBS 33.0.0 x64.
+Stream Notify — тестовая Windows DLL для OBS 33.0.0 x64
 
-Скачать: https://github.com/DIMI0007/stream-notify/actions/runs/40073480487/artifacts/12552143098
-Инструкция: docs/TEST_WINDOWS_RU.md
+Сборки: https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml
+В последней успешной сборке скачайте StreamNotify-Test-DLL-OBS33-Windows-x64.
+Для повторного запуска выберите Run workflow. Ключи сервисов для CI не нужны.
+
+Установка: docs/TEST_WINDOWS_RU.md
+Описание возможностей: README.md
+Донаты: README_DONATIONS_RU.md
 Валюты: docs/CURRENCY_RU.md
+Проверки: tests/VALIDATION.txt
 
-Для повторной сборки откройте Actions → Build Stream Notify test DLL (Windows) → Run workflow.
-Текущая сборка использует Visual Studio 2026, OBS 33.0.0, Qt 6.11.1.
-Исходный ZIP overlay сам по себе DLL не содержал; репозиторий теперь содержит полный toolchain.
-Токены сервисов для сборки не нужны. Вводите их только локально в плагине.
+В ZIP копируйте всю папку stream-notify, включая bin и data.
+Пакет использует OBS 33.0.0, Qt 6.11.1 и Schannel TLS backend.
+Токены и webhook вводятся только локально. EXE-установщика пока нет.

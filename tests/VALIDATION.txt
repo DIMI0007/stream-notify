@@ -1,13 +1,17 @@
-Stream Notify 1.0 + Donation Module — validation report
+Stream Notify — current validation status
 
-PASS  13 standalone C++17 donation-tier assertions (compiled using clang++ on Linux).
-PASS  21 static checks on existing OBS stream announcement code.
-PASS  16 structural checks for donation module, journal, UI and WebSocket dependency.
+PASS: Windows x64 build for OBS 33.0.0 / Qt 6.11.1.
+PASS: C++ donation threshold and fixed-rate conversion tests.
+PASS: Telegram channel-link normalization tests.
+PASS: Discord everyone opt-in/out payload, trailing suffix and length-limit tests (latest feature branch build).
+PASS: Qt navigation, language, compact-mode and modeled multistream start/deduplication/last-stop/restart checks.
+PASS: staged Schannel TLS backend with isolated Qt plugin paths.
+PASS: public Telegram HTTPS (HTTP 302) and Discord gateway HTTPS (HTTP 200), without credentials or messages.
 
-NOT RUN  Windows OBS / Qt6 / Qt6 WebSockets build (SDK unavailable in this container).
-NOT RUN  Real DonationAlerts token, websocket and donation events.
-NOT RUN  DonatePay account API validation (official documentation requires login).
-NOT RUN  Telegram or Discord network deliveries (no user credentials; no test destinations).
-NOT RUN  Memory/CPU profiling and OBS UI tests.
+USER CONFIRMED: OBS dock loads; manual stream/donation notification tests delivered to Telegram and Discord.
+NOT CONFIRMED: end-to-end live donation ingestion on real DonationAlerts/DonatePay accounts.
+DonatePay remains experimental. Modeled output tests are not a complete real Aitum compatibility certification.
 
-Do not distribute as a finished / commercially supported plugin before those tests pass.
+The latest successful GitHub Actions run and its logs are authoritative for each code revision.
+Runtime UI screenshots are generated from the real Qt source using isolated host stubs.
+No real bot token, webhook or donor-service credential is used in CI.
