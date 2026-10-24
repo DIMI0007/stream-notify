@@ -9,6 +9,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QDir>
+#include <QCoreApplication>
+#include <QSslSocket>
 #include <util/bmem.h>
 #include "dock.hpp"
 
@@ -19,6 +21,7 @@ namespace {
 QPointer<StreamDock> g_panel;
 bool g_registered = false;
 bool g_exiting = false;
+QString g_qtPluginPath;
 
 void installDock()
 {
@@ -78,6 +81,17 @@ MODULE_EXPORT const char* obs_module_description(void)
 bool obs_module_load(void)
 {
     g_exiting = false;
+    char* tlsDirectory=obs_module_file("qt-plugins");
+    if(tlsDirectory) {
+        g_qtPluginPath=QString::fromUtf8(tlsDirectory);
+        bfree(tlsDirectory);
+        QCoreApplication::addLibraryPath(g_qtPluginPath);
+    }
+    if(!QSslSocket::supportsSsl() && QSslSocket::availableBackends().contains("schannel"))
+        QSslSocket::setActiveBackend("schannel");
+    blog(LOG_INFO,"[Stream Notify] HTTPS support: %s; TLS backend: %s",
+        QSslSocket::supportsSsl()?"available":"unavailable",
+        QSslSocket::activeBackend().toUtf8().constData());
     obs_frontend_add_event_callback(onFrontend, nullptr);
     g_registered = true;
     blog(LOG_INFO, "[Stream Notify] Module loaded; waiting for frontend initialization");
@@ -94,5 +108,9 @@ void obs_module_unload(void)
         g_panel->shutdown();
         obs_frontend_remove_dock("stream-notify-dock");
         g_panel = nullptr;
+    }
+    if(!g_qtPluginPath.isEmpty()) {
+        QCoreApplication::removeLibraryPath(g_qtPluginPath);
+        g_qtPluginPath.clear();
     }
 }

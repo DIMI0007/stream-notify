@@ -61,7 +61,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item docs/TEST_WINDOWS_RU.md package/INSTALL_RU.md
           if (!(Test-Path package/stream-notify/bin/64bit/stream-notify.dll)) { throw "Plugin DLL missing" }
-          Get-FileHash package/stream-notify/bin/64bit/*.dll | Format-Table -AutoSize | Out-File package/SHA256.txt
+          if (!(Test-Path package/stream-notify/data/qt-plugins/tls/qschannelbackend.dll)) { throw "TLS backend missing" }
+          Get-ChildItem package/stream-notify -Recurse -Filter *.dll | Get-FileHash | Format-Table -AutoSize | Out-File package/SHA256.txt
+      - name: Verify packaged TLS and Telegram HTTPS without credentials
+        shell: pwsh
+        run: |
+          $qtRoot = Join-Path $PWD ".deps/obs-deps-qt6-2026-10-23-x64"
+          $env:PATH = "$qtRoot/bin;$env:PATH"
+          Remove-Item Env:QT_PLUGIN_PATH -ErrorAction SilentlyContinue
+          & ./build_x64/RelWithDebInfo/stream-notify-tls-test.exe "$PWD/package/stream-notify/data/qt-plugins"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
           name: StreamNotify-Test-DLL-OBS33-Windows-x64

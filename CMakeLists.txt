@@ -100,3 +100,11 @@ target_link_libraries(stream-notify-ui-preview PRIVATE
   Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Network Qt6::WebSockets crypt32 SIMDe::SIMDe)
 target_compile_definitions(stream-notify-ui-preview PRIVATE STREAM_NOTIFY_UI_PREVIEW QT_NO_KEYWORDS WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(stream-notify-ui-preview PRIVATE /utf-8 "/FI${CMAKE_CURRENT_SOURCE_DIR}/tests/preview_glue.hpp")
+
+# Qt Network uses a runtime TLS plugin; WebSockets.dll alone is insufficient.
+get_filename_component(_qt_runtime_root "${Qt6_DIR}/../../.." ABSOLUTE)
+find_file(_schannel_backend qschannelbackend.dll
+  PATHS "${_qt_runtime_root}/plugins/tls" NO_DEFAULT_PATH REQUIRED)
+install(FILES "${_schannel_backend}" DESTINATION "${CMAKE_PROJECT_NAME}/data/qt-plugins/tls")
+add_executable(stream-notify-tls-test tests/test_tls_runtime.cpp)
+target_link_libraries(stream-notify-tls-test PRIVATE Qt6::Core Qt6::Network)

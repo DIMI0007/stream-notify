@@ -7,6 +7,7 @@
 #include <QTimer>
 #include <QUrlQuery>
 #include <QRegularExpression>
+#include <QSslSocket>
 #include <algorithm>
 #include <memory>
 
@@ -14,6 +15,10 @@ Sender::Sender(QObject* parent) : QObject(parent) {}
 
 void Sender::send(Channel channel, const Snapshot& s, const QString& message, Completion done)
 {
+    if(!QSslSocket::supportsSsl()) {
+        done({Outcome::Failed,"HTTPS unavailable: Qt TLS module missing. Reinstall the complete Stream Notify folder.",0});
+        return;
+    }
     auto task = std::make_shared<Task>();
     task->channel = channel;
     task->s = s;

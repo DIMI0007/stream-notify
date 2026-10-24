@@ -42,3 +42,9 @@ cmake/ и CMakePresets.json основаны на obsproject/obs-plugintemplate,
 используется как legacy-путь, который OBS 33 ещё поддерживает (до OBS 34).
 Подпись внизу панели: Developed by OTMOPOZOK, постоянная ссылка на ID YouTube-канала.
 Настройка порогов и файла курсов описана в docs/CURRENCY_RU.md.
+
+## Исправление TLS initialization failed
+Архив включает data/qt-plugins/tls/qschannelbackend.dll из той же сборки Qt 6.11.1.
+Копируйте папку stream-notify целиком, включая data. Не копируйте только DLL из bin.
+Проверка CI изолирует пути Qt-плагинов и делает HTTPS-запрос к api.telegram.org без токена и без отправки сообщений.
+Это подтверждает TLS в пакете; отправку вашим ботом нужно отдельно проверить локальной кнопкой теста.
