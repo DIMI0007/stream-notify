@@ -46,10 +46,26 @@ class ServiceBadge final : public QWidget {
 public:
     explicit ServiceBadge(const QString& name,QWidget* parent=nullptr):QWidget(parent),name_(name) {
         setFixedSize(28,28);setAccessibleName(name);
+        // Bundled official artwork: decode once per badge, never fetch at runtime.
+        if(name_=="DonationAlerts") mark_.load(":/stream-notify/brands/donationalerts.png");
+        else if(name_=="DonatePay") mark_.load(":/stream-notify/brands/donatepay.png");
     }
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);p.scale(width()/32.0,height()/32.0);
+        if(!mark_.isNull()) {
+            // The same 28px footprint as other services. Keep the full mark,
+            // its original colours and aspect ratio inside a padded square.
+            p.setPen(Qt::NoPen);
+            p.setBrush(name_=="DonationAlerts"?QColor("#191919"):QColor("#121212"));
+            p.drawRoundedRect(QRectF(0,0,32,32),9,9);
+            p.setRenderHint(QPainter::SmoothPixmapTransform);
+            QSizeF fitted=mark_.size();
+            fitted.scale(QSizeF(26,26),Qt::KeepAspectRatio);
+            const QRectF target(QPointF((32-fitted.width())/2,(32-fitted.height())/2),fitted);
+            p.drawPixmap(target,mark_,QRectF(mark_.rect()));
+            return;
+        }
         QColor color=name_=="Telegram"?QColor("#009aef"):name_=="Discord"?QColor("#5865f2"):
             name_=="YouTube"?QColor("#ff1538"):name_=="Twitch"?QColor("#9146ff"):
             name_=="DonationAlerts"?QColor("#f47e20"):name_=="DonatePay"?QColor("#10bb7c"):name_=="Waiting"?QColor("#3d3219"):QColor("#06382c");
@@ -82,7 +98,7 @@ protected:
             p.drawText(QRectF(0,0,32,32),Qt::AlignCenter,name_=="DonationAlerts"?"D":"₽");
         }
     }
-private: QString name_;
+private: QString name_; QPixmap mark_;
 };
 
 inline QIcon streamEyeIcon() {

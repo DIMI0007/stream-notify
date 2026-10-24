@@ -19,6 +19,7 @@ endif()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 
 find_package(libobs REQUIRED)
 find_package(obs-frontend-api REQUIRED)
@@ -50,6 +51,7 @@ endif()
 find_package(Qt6WebSockets 6.11.1 EXACT REQUIRED)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
+  src/brand_icons.qrc
   src/plugin.cpp
   src/settings.cpp
   src/net.cpp
@@ -90,7 +92,7 @@ set_tests_properties(telegram-channel-links PROPERTIES
 
 # Render and exercise the actual Qt dock without OBS host state or service tokens.
 add_executable(stream-notify-ui-preview
-  tests/ui_preview.cpp
+  tests/ui_preview.cpp src/brand_icons.qrc
   src/dock.cpp src/dock.hpp src/settings.cpp src/settings.hpp
   src/net.cpp src/net.hpp src/donations.cpp src/donations.hpp)
 get_target_property(_obs_includes OBS::libobs INTERFACE_INCLUDE_DIRECTORIES)

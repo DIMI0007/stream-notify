@@ -30,6 +30,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/obs-dock 360 620
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:QT_SCALE_FACTOR = "2"
+          & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/hidpi 360 620
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Remove-Item Env:QT_SCALE_FACTOR
       - uses: actions/upload-artifact@v4
         with:
           name: StreamNotify-UI-Previews
@@ -39,7 +43,7 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.Drawing
-          foreach ($item in Get-ChildItem -Path ui-previews -File -Recurse -Filter *.png | Where-Object { $_.Name -in @("05-donations.png","10-donations-send.png","11-donations-amounts.png","12-donations-text.png") }) {
+          foreach ($item in Get-ChildItem -Path ui-previews -File -Recurse -Filter *.png | Where-Object { $_.Name -in @("05-donations.png") }) {
             $source = [System.Drawing.Image]::FromFile($item.FullName)
             $ratio = [Math]::Min(1.0, [Math]::Min(700.0 / $source.Width, 1000.0 / $source.Height))
             $bitmap = [System.Drawing.Bitmap]::new([int]($source.Width * $ratio), [int]($source.Height * $ratio))

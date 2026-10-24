@@ -10,6 +10,7 @@
 #include <QDoubleSpinBox>
 #include <QTextEdit>
 #include <QLabel>
+#include <QPixmap>
 #include <iostream>
 struct DockPreview {
     static bool live(const StreamDock& panel){return panel.broadcasting_;}
@@ -31,6 +32,12 @@ static void pump() {
 }
 int main(int argc,char** argv) {
     QApplication app(argc,argv);app.setStyle("Fusion");app.setFont(QFont("Segoe UI",9));
+    for(const char* asset : {":/stream-notify/brands/donationalerts.png",":/stream-notify/brands/donatepay.png"}) {
+        if(QPixmap(QString::fromLatin1(asset)).isNull()) {
+            std::cerr<<"Missing or invalid embedded service logo: "<<asset<<"\n";return 21;
+        }
+    }
+    std::cout<<"Embedded DonationAlerts and DonatePay artwork decoded successfully\n";
     const QString output=argc>1?QString::fromLocal8Bit(argv[1]):QString("ui-previews");
     QDir().mkpath(output);
     const int width=argc>2?QString::fromLocal8Bit(argv[2]).toInt():290;

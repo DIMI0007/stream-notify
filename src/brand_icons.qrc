@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/stream-notify/brands">
+    <file alias="donationalerts.png">../data/brands/donationalerts.png</file>
+    <file alias="donatepay.png">../data/brands/donatepay.png</file>
+  </qresource>
+</RCC>
