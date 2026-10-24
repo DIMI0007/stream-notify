@@ -5,7 +5,22 @@
 #include <QDir>
 #include <QThread>
 #include <QFont>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <iostream>
+struct DockPreview {
+    static void countdown(StreamDock& panel) {
+        panel.session_.delay=60;panel.session_.resultSeconds=45;
+        panel.session_.telegram=true;panel.session_.discord=true;
+        panel.elapsed_.start();panel.phase_=StreamDock::Phase::Counting;panel.rebuild();
+    }
+    static void result(StreamDock& panel) {
+        panel.telegram_={Outcome::Sent,QString("Confirmed"),1};
+        panel.discord_={Outcome::Sent,QString("Confirmed"),1};
+        panel.phase_=StreamDock::Phase::Result;
+        panel.resultTimer_.start(45000);panel.rebuild();
+    }
+};
 static void pump() {
     for(int i=0;i<25;++i){QApplication::processEvents();QThread::msleep(2);}
 }
@@ -33,6 +48,11 @@ int main(int argc,char** argv) {
     }
     if(!click(QString::fromUtf8("Донаты")) || !save("05-donations"))return 1;
     if(!click(QString::fromUtf8("Связь")) || !save("06-connections-return"))return 1;
+    if(!click(QString::fromUtf8("Донаты")))return 1;
+    for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+    if(!save("07-donations-bottom"))return 1;
+    DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
+    DockPreview::result(panel);if(!save("09-result"))return 1;
     panel.shutdown();
     std::cout<<"Dock navigation, language and compact-mode smoke tests passed\n";
 }

@@ -27,6 +27,7 @@
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QFont>
+#include <QMap>
 #include <QProgressBar>
 #include <QTextBrowser>
 #include <cmath>
@@ -35,6 +36,8 @@
 namespace {
 const char* css = R"(
 QWidget { font-size: 12px; }
+QWidget#PageBody, QWidget#ScrollViewport { background:#080f18; }
+QPushButton:disabled { color:#6c7890;border-color:#273246; }
 QWidget#StreamRoot { background: #080f18; color: #dfe8ff; }
 QWidget#Card { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101925,stop:1 #0b131e); border: 1px solid #263244; border-radius: 8px; }
 QLabel { color: #dfe8ff; background: transparent; }
@@ -59,6 +62,25 @@ QScrollArea { border: 0; background: transparent; }
 QScrollBar:vertical { border: none; background: #101929; width: 9px; }
 QScrollBar::handle:vertical { background: #384d6c; border-radius: 4px; }
 )";
+
+QString serviceStatus(const QString& value,bool russian) {
+    if(!russian)return value;
+    static const QMap<QString,QString> names={
+        {"Disabled",QString::fromUtf8("Отключён")},
+        {"Connecting",QString::fromUtf8("Подключение…")},
+        {"Connected",QString::fromUtf8("Подключён")},
+        {"Reconnecting",QString::fromUtf8("Переподключение…")},
+        {"Waiting for stream",QString::fromUtf8("Ожидание трансляции")},
+        {"Not configured",QString::fromUtf8("Введите токен")},
+        {"API verification required",QString::fromUtf8("API требует проверки")},
+        {"API responded (legacy, unverified)",QString::fromUtf8("API ответил — экспериментальный режим")},
+        {"Invalid or expired token",QString::fromUtf8("Токен недействителен или истёк")},
+        {"Rate limited",QString::fromUtf8("Лимит запросов — подождите")},
+        {"Network error",QString::fromUtf8("Ошибка соединения")},
+        {"Journal error",QString::fromUtf8("Ошибка журнала")}
+    };
+    return names.value(value,value);
+}
 
 QVBoxLayout* column(QWidget* w, int gap = 9, int padding = 12)
 {
@@ -165,8 +187,8 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     donationConfigure_.setInterval(1400);
     connect(&donationConfigure_, &QTimer::timeout, &donation_, &DonationEngine::configure);
     connect(&donation_, &DonationEngine::updated, this, [this] {
-        if(daStatusLabel_) daStatusLabel_->setText(donation_.daStatus());
-        if(dpStatusLabel_) dpStatusLabel_->setText(donation_.dpStatus());
+        if(daStatusLabel_) daStatusLabel_->setText(serviceStatus(donation_.daStatus(),isRu()));
+        if(dpStatusLabel_) dpStatusLabel_->setText(serviceStatus(donation_.dpStatus(),isRu()));
         if(donationJournalLabel_) donationJournalLabel_->setText(donation_.journal().join("\n"));
     });
     broadcasting_ = obs_frontend_streaming_active();
@@ -311,6 +333,7 @@ QWidget* StreamDock::buildRegular()
     }
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
+    scroll->viewport()->setObjectName("ScrollViewport");
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     QWidget* body = nullptr;
     switch(page_) {
@@ -320,6 +343,7 @@ QWidget* StreamDock::buildRegular()
         case Page::Interface: body = buildInterface(); break;
         case Page::Donations: body = buildDonations(); break;
     }
+    body->setObjectName("PageBody");
     scroll->setWidget(body);
     vertical->addWidget(scroll,1);
     return wrap;
@@ -529,7 +553,7 @@ QWidget* StreamDock::buildMessage()
     section(v, uiText("Шаблон уведомления", "Notification template"));
     v->addWidget(label(uiText("Поддерживаются {youtube} и {twitch}", "Supports {youtube} and {twitch}"), "Hint"));
     auto* edit = new QTextEdit;
-    edit->setMinimumHeight(100);
+    edit->setFixedHeight(store_.current.compact?92:120);
     edit->setPlainText(store_.current.message);
     connect(edit, &QTextEdit::textChanged, this, [this,edit] {store_.current.message=edit->toPlainText();changeSettings();});
     v->addWidget(edit);
@@ -604,10 +628,10 @@ QWidget* StreamDock::buildDonations()
         auto* box=card(&l);
         serviceSection(l,title);
         addToggle(l,uiText("Подключить сервис", "Enable service"),enabled);
-        statusLabel=label(status,"Hint");
+        statusLabel=label(serviceStatus(status,isRu()),"Hint");
         l->addWidget(statusLabel);
         auto* edit=new QLineEdit(token);edit->setEchoMode(QLineEdit::Password);
-        edit->setPlaceholderText(title+" API token");
+        edit->setPlaceholderText(uiText("Вставьте токен сервиса","Paste service token"));
         connect(edit,&QLineEdit::textChanged,this,[this,value=&token](const QString& text){*value=text;changeSettings();});
         auto* reveal=btn(uiText("Показать", "Show"));
         connect(reveal,&QPushButton::clicked,this,[edit]{edit->setEchoMode(edit->echoMode()==QLineEdit::Password?QLineEdit::Normal:QLineEdit::Password);});
@@ -683,7 +707,7 @@ QWidget* StreamDock::buildDonations()
     select->addItem(uiText("👑 Мега", "👑 Mega"),2);
     v->addWidget(select);
     auto* editor=new QTextEdit;
-    editor->setMinimumHeight(110);
+    editor->setFixedHeight(store_.current.compact?96:132);
     editor->setPlainText(s.templates.at(0));
     v->addWidget(editor);
     v->addWidget(label("{donor} {amount} {currency} {message} {service} {stream_url}","Hint"));
@@ -792,7 +816,7 @@ QWidget* StreamDock::buildInterface()
 // Circular progress is repainted once per second only while counting.
 class CountdownRing final : public QWidget {
 public:
-    explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {setMinimumSize(160,160);}
+    explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {setMinimumSize(200,200);}
     void setValues(int remaining, int total) { remaining_=remaining; total_=std::max(1,total); update(); }
 protected:
     void paintEvent(QPaintEvent*) override
@@ -808,8 +832,20 @@ protected:
         p.drawArc(r,90*16, -int(360.0*16*remaining_/total_));
         p.setPen(QColor("#e4f3ff"));
         QFont f=font(); f.setPointSize(30); f.setBold(true); p.setFont(f);
-        const QString value = QString("%1:%2").arg(remaining_/60,2,10,QChar('0')).arg(remaining_%60,2,10,QChar('0'));
-        p.drawText(rect(), Qt::AlignCenter,value);
+        const QString minutes=QString("%1:").arg(remaining_/60,2,10,QChar('0'));
+        const QString seconds=QString("%1").arg(remaining_%60,2,10,QChar('0'));
+        const QFontMetricsF metrics(f);
+        const qreal start=(width()-metrics.horizontalAdvance(minutes+seconds))/2;
+        const qreal baseline=height()/2.0+metrics.ascent()/2;
+        p.drawText(QPointF(start,baseline),minutes);
+        p.setPen(QColor("#24dcf8"));
+        p.drawText(QPointF(start+metrics.horizontalAdvance(minutes),baseline),seconds);
+        p.setBrush(Qt::NoBrush);p.setPen(QPen(QColor("#24dcf8"),2,Qt::SolidLine,Qt::RoundCap));
+        const qreal cx=width()/2.0,cy=height()/2.0-37;
+        QPainterPath bell;bell.moveTo(cx-9,cy+6);bell.lineTo(cx-7,cy+1);
+        bell.lineTo(cx-7,cy-6);bell.cubicTo(cx-7,cy-15,cx+7,cy-15,cx+7,cy-6);
+        bell.lineTo(cx+7,cy+1);bell.lineTo(cx+9,cy+6);bell.closeSubpath();p.drawPath(bell);
+        p.drawArc(QRectF(cx-3,cy+6,6,6),180*16,180*16);
     }
 private:
     int remaining_ = 60;

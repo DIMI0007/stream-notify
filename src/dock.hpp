@@ -12,6 +12,9 @@
 
 class CountdownRing;
 class StreamDock : public QWidget {
+#ifdef STREAM_NOTIFY_UI_PREVIEW
+    friend struct DockPreview;
+#endif
     Q_OBJECT
 public:
     explicit StreamDock(QWidget* parent = nullptr);
