@@ -27,3 +27,9 @@ PASS: deduplicated retained string/byte-buffer capacity; HTTP payload byte accou
 PASS: actual Qt Home monitoring cards, no telemetry on Settings, and removal of all autosave footer labels across viewport previews.
 LIMIT: monitor CPU covers instrumented synchronous code, not all shared Qt/OS background work; buffer totals are not complete DLL RAM.
 LIMIT: output counters/naming across actual Aitum versions require an OBS runtime check. CI uses controlled outputs.
+
+PASS: compact Home keeps URL inputs and manual delivery tests in Settings.
+PASS: stream cards show only state, bitrate and transferred GiB; detailed loss/history remains in tooltips.
+PASS: donation-session-summary tests cover below-threshold amounts, FX/unpriced amounts, duplicate replay, manual-test exclusion and session reset.
+PASS: UI preview injects two below-threshold donations and verifies count=2, RUB=99 without any outbound notification.
+NOTE: donation summary is observed current/last-stream activity, resets on OBS restart and is not a provider payment-history report.
