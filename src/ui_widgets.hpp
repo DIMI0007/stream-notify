@@ -92,3 +92,38 @@ inline void serviceSection(QVBoxLayout* layout,const QString& name) {
     auto* row=new QHBoxLayout;row->setSpacing(7);row->addWidget(new ServiceBadge(name));
     auto* title=new QLabel(name);title->setObjectName("Section");row->addWidget(title,1);layout->addLayout(row);
 }
+
+inline QIcon streamNavIcon(const QString& kind,bool active=false) {
+    QPixmap image(48,48);image.fill(Qt::transparent);
+    QPainter p(&image);p.setRenderHint(QPainter::Antialiasing);p.scale(2,2);
+    const QColor color=active?QColor("#f1f3ff"):QColor("#aebde3");
+    p.setPen(QPen(color,1.7,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.setBrush(Qt::NoBrush);
+    if(kind=="home") {
+        QPainterPath path;path.moveTo(2,11);path.lineTo(12,3);path.lineTo(22,11);
+        path.lineTo(19,11);path.lineTo(19,21);path.lineTo(14,21);path.lineTo(14,15);
+        path.lineTo(10,15);path.lineTo(10,21);path.lineTo(5,21);path.lineTo(5,11);path.closeSubpath();
+        p.fillPath(path,color);
+    } else if(kind=="settings") {
+        p.save();p.translate(12,12);
+        for(int i=0;i<8;++i){p.drawLine(QPointF(0,-8),QPointF(0,-10));p.rotate(45);}
+        p.drawEllipse(QPointF(0,0),6.8,6.8);p.drawEllipse(QPointF(0,0),2.5,2.5);p.restore();
+    } else if(kind=="connections") {
+        p.save();p.translate(12,12);p.rotate(38);
+        p.drawRoundedRect(QRectF(-4,-10,8,12),4,4);
+        p.drawRoundedRect(QRectF(-4,-2,8,12),4,4);p.restore();
+    } else if(kind=="message") {
+        QPainterPath path;path.moveTo(5,4);path.lineTo(20,4);path.lineTo(20,17);
+        path.lineTo(11,17);path.lineTo(5,21);path.lineTo(5,17);path.lineTo(3,17);
+        path.lineTo(3,4);path.closeSubpath();p.drawPath(path);
+        p.drawLine(7,9,16,9);p.drawLine(7,12,13,12);
+    } else if(kind=="interface") {
+        p.drawRoundedRect(QRectF(2,3,20,14),2,2);p.drawLine(12,17,12,21);p.drawLine(7,21,17,21);
+    } else if(kind=="donations") {
+        p.drawEllipse(QPointF(12,12),9,9);
+        QFont font=p.font();font.setPixelSize(15);font.setBold(true);p.setFont(font);
+        p.drawText(QRectF(1,1,22,22),Qt::AlignCenter,QString::fromUtf8("₽"));
+    } else if(kind=="copy") {
+        p.drawRoundedRect(QRectF(3,7,13,14),2,2);p.drawRoundedRect(QRectF(8,3,13,14),2,2);
+    }
+    p.end();image.setDevicePixelRatio(2);return QIcon(image);
+}

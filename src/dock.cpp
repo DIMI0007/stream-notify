@@ -50,7 +50,9 @@ QLabel#Good { color: #07df91; font-weight: 700; }
 QLabel#Bad { color: #ff8484; font-weight: 700; }
 QLabel#Count { color: #59dfff; font-weight: 750; font-size: 57px; }
 QPushButton { color: #e1ebff; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #202a3b,stop:1 #141d2b); border: 1px solid #39465d; border-radius: 8px; min-height: 20px; padding: 3px 7px; }
-QPushButton:hover { background: #2f4565; }
+QPushButton:hover { background:#26344d;border-color:#6476a0; }
+QPushButton:focus { border-color:#8a79ff; }
+QPushButton:pressed { background:#111b30; }
 QPushButton#ActiveNav { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #18203c,stop:1 #111e50); border: 1px solid #303e6c; border-bottom: 2px solid #6547ff; font-weight: 700; }
 QPushButton#Cancel { background: #16395b; border-color: #40b7ff; font-weight: 700; min-height: 28px; }
 QLineEdit,QTextEdit,QComboBox,QDoubleSpinBox { color: #e7eeff; background: #0c1420; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
@@ -106,6 +108,10 @@ QPushButton* btn(const QString& text, QWidget* parent = nullptr)
 {
     auto* p = new QPushButton(text, parent);
     p->setCursor(Qt::PointingHandCursor);
+    if(text==QString::fromUtf8("Копировать") || text=="Copy") {
+        p->setText(QString());p->setIcon(streamNavIcon("copy"));p->setIconSize(QSize(18,18));
+        p->setFixedWidth(30);p->setToolTip(text);p->setAccessibleName(text);
+    }
     if(text==QString::fromUtf8("Показать") || text=="Show") {
         p->setText(QString());
         p->setIcon(streamEyeIcon());
@@ -313,8 +319,12 @@ QWidget* StreamDock::buildRegular()
     auto* nav = new QHBoxLayout(tabs);
     nav->setContentsMargins(0,0,0,0);
     nav->setSpacing(4);
-    auto* home = btn(uiText("⌂  Основное", "⌂  Home"));
-    auto* settings = btn(uiText("⚙ Настройки", "⚙ Settings"));
+    auto* home = btn(uiText("Основное", "Home"));
+    home->setIcon(streamNavIcon("home",page_==Page::Home));
+    home->setIconSize(QSize(18,18));
+    auto* settings = btn(uiText("Настройки", "Settings"));
+    settings->setIcon(streamNavIcon("settings",page_!=Page::Home));
+    settings->setIconSize(QSize(18,18));
     home->setObjectName(page_ == Page::Home ? "ActiveNav" : "");
     settings->setObjectName(page_ != Page::Home ? "ActiveNav" : "");
     connect(home, &QPushButton::clicked, this, [this] {showPage(Page::Home);});
@@ -335,6 +345,10 @@ QWidget* StreamDock::buildRegular()
         int subIndex = 0;
         for (const auto& p : pages) {
             auto* b = btn(p.name);
+            const QString icon=p.page==Page::Connections?"connections":p.page==Page::Message?"message":
+                p.page==Page::Interface?"interface":"donations";
+            b->setIcon(streamNavIcon(icon,p.page==page_));
+            b->setIconSize(QSize(16,16));
             if(p.page == page_) b->setObjectName("ActiveNav");
             connect(b, &QPushButton::clicked, this, [this,p] {showPage(p.page);});
             subnav->addWidget(b, subIndex / 2, subIndex % 2);
@@ -366,7 +380,7 @@ QWidget* StreamDock::buildHome()
     auto* outer = column(body, 10, 3);
     QVBoxLayout* v;
     auto* enabled = card(&v);
-    auto* toggle = new StreamSwitch(uiText("Автоуведомления включены", "Automatic notifications enabled"));
+    auto* toggle = new StreamSwitch(uiText("Анонсировать начало стрима", "Announce stream start"));
     toggle->setChecked(store_.current.enabled);
     connect(toggle, &QCheckBox::toggled, this, [this](bool val) {
         store_.current.enabled = val;
@@ -375,7 +389,7 @@ QWidget* StreamDock::buildHome()
         else rebuild();
     });
     v->addWidget(toggle);
-    v->addWidget(label(uiText("Отправлять при начале трансляции", "Send when streaming begins"), "Hint"));
+    v->addWidget(label(uiText("Один анонс после старта трансляции", "One announcement when streaming starts"), "Hint"));
     outer->addWidget(enabled);
 
     auto* status = card(&v);
@@ -384,12 +398,12 @@ QWidget* StreamDock::buildHome()
     v->addWidget(label(state, broadcasting_ ? "Good" : "Waiting"));
     QString hint = statusText_;
     if (hint.isEmpty()) hint = broadcasting_ ? uiText("Рассылка не запущена", "No notification pending") :
-      uiText("Начните трансляцию в OBS", "Start streaming in OBS");
+      uiText("Начните эфир в OBS или Aitum", "Go live with OBS or Aitum");
     v->addWidget(label(hint, "Hint"));
     outer->addWidget(status);
 
     auto* channelCard = card(&v);
-    section(v, uiText("Каналы уведомлений", "Notification channels"));
+    section(v, uiText("Куда отправлять", "Destinations"));
     auto addChannel = [&](Channel c) {
         const bool tg = (c == Channel::Telegram);
         auto* h = new QHBoxLayout;
@@ -429,7 +443,7 @@ QWidget* StreamDock::buildHome()
     outer->addWidget(channelCard);
 
     auto* last = card(&v);
-    section(v, uiText("Последнее уведомление", "Last notification"));
+    section(v, uiText("Последняя отправка", "Last delivery"));
     v->addWidget(label(store_.current.lastTime.isEmpty() ? uiText("Ещё не отправлялись", "Nothing sent yet") : store_.current.lastTime, "Hint"));
     if (!store_.current.lastTelegram.isEmpty()) v->addWidget(label("Telegram: " + store_.current.lastTelegram));
     if (!store_.current.lastDiscord.isEmpty()) v->addWidget(label("Discord: " + store_.current.lastDiscord));
@@ -536,7 +550,7 @@ QWidget* StreamDock::buildConnections()
     connect(showHook, &QPushButton::clicked, this, [hook] {hook->setEchoMode(hook->echoMode()==QLineEdit::Password ? QLineEdit::Normal : QLineEdit::Password);});
     rowWith(v, hook, showHook);
     auto* h2 = new QHBoxLayout;
-    auto* testDc = btn(uiText("Тест Discord", "Test Discord"));
+    auto* testDc = btn(uiText("Отправить тест", "Send test"));
     testDc->setEnabled(!testingDiscord_ && validDiscord(store_.current.discordWebhook));
     connect(hook,&QLineEdit::textChanged,testDc,[this,testDc]{testDc->setEnabled(!testingDiscord_ && validDiscord(store_.current.discordWebhook));});
     connect(testDc, &QPushButton::clicked, this, [this] {testChannel(Channel::Discord);});
@@ -588,7 +602,7 @@ QWidget* StreamDock::buildMessage()
 
     auto* delay = card(&v);
     section(v,uiText("Задержка отправки", "Notification delay"));
-    v->addWidget(label(uiText("Отсчёт после подтверждённого старта OBS", "Countdown after confirmed OBS stream start"), "Hint"));
+    v->addWidget(label(uiText("После начала эфира, включая Aitum", "After going live, including Aitum"), "Hint"));
     auto* delayRow=new QHBoxLayout;delayRow->setSpacing(4);
     for(int seconds:{60,90,120}) {
         auto* choice=btn(QString::number(seconds)+uiText(" сек"," sec"));
