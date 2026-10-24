@@ -1,6 +1,6 @@
 # Stream Notify
 
-Нативный плагин для **OBS Studio 33.0.0 x64**: анонсы трансляций и донатные уведомления в **Telegram и Discord**. Работает внутри OBS, включая сетевые выходы **Aitum Multistream**.
+Нативный плагин для **OBS Studio 33.0.0 x64**: анонсы трансляций и уведомления о донатах с сервисов **DonationAlerts** и **DonatePay** с отправкой в **Telegram и Discord**. Работает внутри OBS, включая сетевые выходы **Aitum Multistream**.
 
 [Сборки Windows](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml) ·
 [Установка и обновление](docs/TEST_WINDOWS_RU.md) ·
