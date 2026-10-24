@@ -412,7 +412,8 @@ void DonationEngine::checkDonationAlerts() {if(!daSignature_.isEmpty()){daRetry_
 void DonationEngine::checkDonatePay() {if(!dpSignature_.isEmpty()){dpTimer_.stop();dpPrimed_=false;dpPoll();}}
 void DonationEngine::previewTest(int level) {
     const auto& s=store_->current;
-    Donation d; d.service="Stream Notify TEST";d.id="test";d.currency="RUB";d.amount=level==0?100:level==1?500:2000;
+    Donation d; d.service="Stream Notify TEST";d.id="test";d.currency="RUB";const auto thresholds=s.donations.thresholds.value("RUB");
+    d.amount=thresholds.size()==3 && level>=0 && level<3?thresholds.at(level):100;
     d.donor="Test donor";d.message="Test donation";
     QString body=donationMessage(d,s.donations,level,streamUrl(s));
     Snapshot snap=makeSnapshot(s);

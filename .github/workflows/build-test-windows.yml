@@ -39,7 +39,7 @@ jobs:
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.Drawing
-          foreach ($item in Get-ChildItem -Path ui-previews -File -Recurse -Filter *.png | Where-Object { $_.Name -in @("03-message.png") }) {
+          foreach ($item in Get-ChildItem -Path ui-previews -File -Recurse -Filter *.png | Where-Object { $_.Name -in @("05-donations.png","10-donations-send.png","11-donations-amounts.png","12-donations-text.png") }) {
             $source = [System.Drawing.Image]::FromFile($item.FullName)
             $ratio = [Math]::Min(1.0, [Math]::Min(700.0 / $source.Width, 1000.0 / $source.Height))
             $bitmap = [System.Drawing.Bitmap]::new([int]($source.Width * $ratio), [int]($source.Height * $ratio))

@@ -55,6 +55,8 @@ QPushButton:hover { background:#26344d;border-color:#6476a0; }
 QPushButton:focus { border-color:#8a79ff; }
 QPushButton:pressed { background:#111b30; }
 QPushButton#ActiveNav { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #18203c,stop:1 #111e50); border: 1px solid #303e6c; border-bottom: 2px solid #6547ff; font-weight: 700; }
+QPushButton#DonationTab {font-size:11px;min-height:18px;padding:3px 4px;background:#0d1824;border:0;border-bottom:2px solid #243246;border-radius:4px;}
+QPushButton#DonationTab[selected="true"] {color:#b8ffe1;background:#102c29;border-bottom-color:#00d58a;}
 QPushButton#Cancel { background: #16395b; border-color: #40b7ff; font-weight: 700; min-height: 28px; }
 QLineEdit,QTextEdit,QComboBox,QDoubleSpinBox { color: #e7eeff; background: #0c1420; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
 QComboBox QAbstractItemView { background: #101a2b; color: #e7eeff; }
@@ -245,6 +247,8 @@ QWidget* StreamDock::card(QVBoxLayout** l)
     QWidget* w = new QWidget;
     w->setObjectName("Card");
     *l = column(w, store_.current.compact ? 3 : 5, store_.current.compact ? 5 : 8);
+    w->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
+    (*l)->setAlignment(Qt::AlignTop);
     return w;
 }
 void StreamDock::changeSettings() { store_.scheduleSave(); donationConfigure_.start(); }
@@ -370,6 +374,24 @@ QWidget* StreamDock::buildRegular()
             ++subIndex;
         }
         vertical->addWidget(sub);
+    }
+    if(page_==Page::Donations) {
+        auto* group=new QWidget;
+        auto* row=new QHBoxLayout(group);row->setContentsMargins(0,0,0,0);row->setSpacing(3);
+        const struct {DonationPage page;QString title;QString hint;} sections[]={
+            {DonationPage::Services,uiText("Сервисы","Services"),uiText("DonationAlerts и DonatePay","DonationAlerts and DonatePay")},
+            {DonationPage::Delivery,uiText("Отправка","Delivery"),uiText("Получатели и правила отправки","Recipients and delivery rules")},
+            {DonationPage::Amounts,uiText("Суммы","Amounts"),uiText("Рублёвые пороги и курсы валют","RUB thresholds and exchange rates")},
+            {DonationPage::Templates,uiText("Текст","Text"),uiText("Шаблоны, предпросмотр и журнал","Templates, preview and delivery log")}
+        };
+        for(const auto& item:sections) {
+            auto* choice=btn(item.title);choice->setObjectName("DonationTab");
+            choice->setProperty("selected",item.page==donationPage_);
+            choice->setProperty("donationSection",int(item.page));choice->setToolTip(item.hint);
+            connect(choice,&QPushButton::clicked,this,[this,page=item.page]{donationPage_=page;rebuild();});
+            row->addWidget(choice,1);
+        }
+        vertical->addWidget(group);
     }
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
@@ -675,12 +697,9 @@ QWidget* StreamDock::buildDonations()
     auto* master=card(&v);
     section(v,uiText("Уведомления о донатах", "Donation notifications"));
     addToggle(v,uiText("Включить модуль", "Enable donation module"),s.enabled);
-    addToggle(v,uiText("Только во время стрима", "Only while streaming"),s.onlyLive);
-    addToggle(v,uiText("Публиковать сообщение донатера", "Include donor message"),s.includeDonorMessage);
-    v->addWidget(label(uiText("Анонсы старта трансляции работают независимо от донатов.",
-        "Stream start announcements work independently of donations."),"Hint"));
     outer->addWidget(master);
 
+    if(donationPage_==DonationPage::Services) {
     auto addService=[&](const QString& title,bool& enabled,QString& token,QLabel*& statusLabel,
                         const QString& status,std::function<void()> test){
         QVBoxLayout* l;
@@ -698,16 +717,25 @@ QWidget* StreamDock::buildDonations()
         auto* verify=btn(uiText("Проверить подключение", "Check connection"));
         connect(verify,&QPushButton::clicked,this,[test]{test();});
         l->addWidget(verify);
+        if(title=="DonatePay") {
+            addToggle(l,uiText("Разрешить экспериментальный API","Allow experimental API"),s.legacyApiOptIn);
+            auto* note=label(uiText("Экспериментально • опрос каждые 30 сек.","Experimental • polling every 30 sec."),"Hint");
+            note->setToolTip(uiText("Совместимость API и приём реальных донатов требуют проверки на вашем аккаунте.",
+                "API compatibility and live donation ingestion must be verified on your account."));
+            l->addWidget(note);
+        }
         outer->addWidget(box);
     };
     addService("DonationAlerts",s.daEnabled,s.daToken,daStatusLabel_,donation_.daStatus(),[this]{donationConfigure_.stop();donation_.configure();donation_.checkDonationAlerts();});
     addService("DonatePay",s.dpEnabled,s.dpToken,dpStatusLabel_,donation_.dpStatus(),[this]{donationConfigure_.stop();donation_.configure();donation_.checkDonatePay();});
-    auto* experimental=card(&v);
-    addToggle(v,uiText("Разрешить экспериментальный API DonatePay",
-                   "Allow experimental DonatePay API"),s.legacyApiOptIn);
-    v->addWidget(label(uiText("Официальная страница API требует входа. Перед включением проверьте совместимость метода в своём аккаунте. Интервал запросов — 30 сек.",
-        "Official API documentation requires sign-in. Verify the endpoint with your account before enabling. 30-second polling."),"Hint"));
-    outer->addWidget(experimental);
+    }
+    if(donationPage_==DonationPage::Delivery) {
+    auto* rules=card(&v);
+    section(v,uiText("Правила отправки","Delivery rules"));
+    addToggle(v,uiText("Только во время стрима","Only while streaming"),s.onlyLive);
+    addToggle(v,uiText("Публиковать сообщение донатера","Include donor message"),s.includeDonorMessage);
+    v->addWidget(label(uiText("Донаты и анонсы стрима включаются независимо.","Donation and stream announcements are enabled independently."),"Hint"));
+    outer->addWidget(rules);
 
     auto* destinations=card(&v);
     section(v,uiText("Куда отправлять", "Destinations"));
@@ -716,6 +744,8 @@ QWidget* StreamDock::buildDonations()
     addToggle(v,QString("Discord"),s.toDiscord);
     outer->addWidget(destinations);
 
+    }
+    if(donationPage_==DonationPage::Amounts) {
     auto* thresholds=card(&v);
     section(v,uiText("Пороговые суммы", "Donation thresholds"));
     v->addWidget(label(uiText("Все пороги — в рублях. Курсы сохраняются один раз, без автообновлений.",
@@ -758,6 +788,8 @@ QWidget* StreamDock::buildDonations()
     populateThresholds();v->addWidget(thresholdEditors);
     outer->addWidget(thresholds);
 
+    }
+    if(donationPage_==DonationPage::Templates) {
     auto* templates=card(&v);
     section(v,uiText("Шаблоны трёх уровней", "Three level templates"));
     auto* select=new QComboBox;
@@ -775,7 +807,8 @@ QWidget* StreamDock::buildDonations()
     auto updatePreview=[this,select,preview]() {
         Donation test;test.service="DonationAlerts";test.id="preview";test.donor=uiText("Тестовый зритель","Test donor");
         test.message=uiText("Спасибо за стрим!","Thanks for the stream!");test.currency="RUB";
-        test.amount=select->currentIndex()==0?100:select->currentIndex()==1?500:2000;
+        const auto values=store_.current.donations.thresholds.value("RUB");
+        test.amount=values.size()==3?values.at(select->currentIndex()):100;
         const QString url=!store_.current.youtubeUrl.isEmpty()?store_.current.youtubeUrl:store_.current.twitchUrl;
         preview->setText(donationMessage(test,store_.current.donations,select->currentIndex(),url));
     };
@@ -817,6 +850,7 @@ QWidget* StreamDock::buildDonations()
     });
     v->addWidget(fullLog);
     outer->addWidget(journal);
+    }
     outer->addStretch();
     return body;
 }

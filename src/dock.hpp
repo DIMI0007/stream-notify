@@ -19,6 +19,7 @@ class StreamDock : public QWidget {
 public:
     explicit StreamDock(QWidget* parent = nullptr);
     ~StreamDock() override;
+    QSize sizeHint() const override { return QSize(360,620); }
     void refreshStreamingState();
     void streamStarted();
     void streamStopped();
@@ -27,6 +28,8 @@ public:
 private:
     enum class Phase { Idle, Counting, Sending, Result, Cancelled };
     enum class Page { Home, Connections, Message, Interface, Donations };
+    enum class DonationPage { Services, Delivery, Amounts, Templates };
+    DonationPage donationPage_ = DonationPage::Services;
     SettingsStore store_;
     Sender sender_;
     Sender testSender_;

@@ -7,6 +7,9 @@
 #include <QFont>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QDoubleSpinBox>
+#include <QTextEdit>
+#include <QLabel>
 #include <iostream>
 struct DockPreview {
     static bool live(const StreamDock& panel){return panel.broadcasting_;}
@@ -53,6 +56,38 @@ int main(int argc,char** argv) {
     if(!click(QString::fromUtf8("Донаты")) || !save("05-donations"))return 1;
     if(!click(QString::fromUtf8("Связь")) || !save("06-connections-return"))return 1;
     if(!click(QString::fromUtf8("Донаты")))return 1;
+    const QSize dockSize=panel.size();
+    auto donationTab=[&](int section) {
+        for(auto* button:panel.findChildren<QPushButton*>()) {
+            const QVariant value=button->property("donationSection");
+            if(value.isValid() && value.toInt()==section) {button->click();pump();return panel.size()==dockSize;}
+        }
+        return false;
+    };
+    if(!donationTab(1)||!save("10-donations-send"))return 10;
+    if(!donationTab(2)||!save("11-donations-amounts"))return 11;
+    const auto amounts=panel.findChildren<QDoubleSpinBox*>();
+    if(amounts.size()!=3)return 12;
+    amounts[0]->setValue(99);pump();
+    if(!donationTab(3))return 13;
+    bool correctPreview=false;
+    for(auto* label:panel.findChildren<QLabel*>())
+        if(label->text().contains("99 RUB"))correctPreview=true;
+    if(!correctPreview)return 14;
+    auto* editor=panel.findChild<QTextEdit*>();
+    if(!editor)return 15;
+    const QString original=editor->toPlainText();
+    editor->setPlainText(original+" UI-PERSIST-CHECK");pump();
+    if(!donationTab(0)||!donationTab(3))return 16;
+    editor=panel.findChild<QTextEdit*>();
+    if(!editor||!editor->toPlainText().endsWith(" UI-PERSIST-CHECK"))return 17;
+    editor->setPlainText(original);
+    if(!donationTab(2))return 18;
+    const auto restoredAmounts=panel.findChildren<QDoubleSpinBox*>();
+    if(restoredAmounts.isEmpty()||restoredAmounts[0]->value()!=99)return 19;
+    restoredAmounts[0]->setValue(100);
+    if(!donationTab(3)||!save("12-donations-text"))return 20;
+    std::cout<<"Donation subtabs: stable dock size, edited amounts and template persistence passed\\n";
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
     if(!save("07-donations-bottom"))return 1;
     DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
