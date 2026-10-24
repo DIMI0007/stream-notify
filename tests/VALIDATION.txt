@@ -1,0 +1,13 @@
+Stream Notify 1.0 + Donation Module — validation report
+
+PASS  13 standalone C++17 donation-tier assertions (compiled using clang++ on Linux).
+PASS  21 static checks on existing OBS stream announcement code.
+PASS  16 structural checks for donation module, journal, UI and WebSocket dependency.
+
+NOT RUN  Windows OBS / Qt6 / Qt6 WebSockets build (SDK unavailable in this container).
+NOT RUN  Real DonationAlerts token, websocket and donation events.
+NOT RUN  DonatePay account API validation (official documentation requires login).
+NOT RUN  Telegram or Discord network deliveries (no user credentials; no test destinations).
+NOT RUN  Memory/CPU profiling and OBS UI tests.
+
+Do not distribute as a finished / commercially supported plugin before those tests pass.
