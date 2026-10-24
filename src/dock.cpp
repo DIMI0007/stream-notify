@@ -9,6 +9,8 @@
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QPaintEvent>
+#include <QShowEvent>
+#include <QHideEvent>
 #include <QScrollArea>
 #include <QPushButton>
 #include <QCheckBox>
@@ -924,13 +926,29 @@ public:
     explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {
         setMinimumSize(160,160);setMaximumSize(320,320);
         QSizePolicy policy(QSizePolicy::Preferred,QSizePolicy::Preferred);policy.setHeightForWidth(true);setSizePolicy(policy);
+        // Local repaint only, at 30 fps for the last ten visible seconds.
+        // Sending still follows StreamDock's elapsed timer, independently.
+        pulseTimer_.setParent(this);pulseTimer_.setObjectName("CountdownPulseTimer");
+        pulseTimer_.setInterval(33);
+        connect(&pulseTimer_,&QTimer::timeout,this,[this]{update();});
     }
     QSize sizeHint() const override {return QSize(320,320);}
     QSize minimumSizeHint() const override {return QSize(160,160);}
     bool hasHeightForWidth() const override {return true;}
     int heightForWidth(int width) const override {return std::clamp(width,160,320);}
-    void setValues(int remaining, int total) { remaining_=remaining; total_=std::max(1,total); update(); }
+    void setValues(int remaining, int total) {
+        const int next=std::max(0,remaining);
+        if(next!=remaining_ || !beat_.isValid()) beat_.start();
+        remaining_=next;total_=std::max(1,total);
+        refreshAnimation();update();
+    }
 protected:
+    void showEvent(QShowEvent* event) override {
+        QWidget::showEvent(event);refreshAnimation();
+    }
+    void hideEvent(QHideEvent* event) override {
+        pulseTimer_.stop();QWidget::hideEvent(event);
+    }
     void paintEvent(QPaintEvent*) override
     {
         QPainter p(this);
@@ -947,6 +965,12 @@ protected:
         const double angle=(90.0-360.0*remaining_/total_)*3.14159265358979323846/180.0;
         const QPointF tip(r.center().x()+r.width()/2*std::cos(angle),r.center().y()-r.height()/2*std::sin(angle));
         p.setPen(Qt::NoPen);p.setBrush(QColor("#6ef2ff"));p.drawEllipse(tip,5,5);
+        // One soft heartbeat per second. No layout changes, flashing or effects.
+        const double phase=beat_.isValid()?(beat_.elapsed()%1000)/1000.0:0.0;
+        const double wave=lastSeconds()?std::pow(std::sin(phase*3.14159265358979323846),2):0.0;
+        const qreal scale=1.0+0.06*wave;
+        const QColor accent=QColor("#24dcf8").lighter(100+int(18*wave));
+        p.save();p.translate(r.center());p.scale(scale,scale);p.translate(-r.center());
         p.setPen(QColor("#e4f3ff"));
         QFont f=font(); f.setPixelSize(std::clamp(int(side*0.22),32,60)); f.setBold(true); p.setFont(f);
         const QString minutes=QString("%1:").arg(remaining_/60,2,10,QChar('0'));
@@ -955,18 +979,25 @@ protected:
         const qreal start=(width()-metrics.horizontalAdvance(minutes+seconds))/2;
         const qreal baseline=height()/2.0+metrics.ascent()/2;
         p.drawText(QPointF(start,baseline),minutes);
-        p.setPen(QColor("#24dcf8"));
+        p.setPen(accent);
         p.drawText(QPointF(start+metrics.horizontalAdvance(minutes),baseline),seconds);
-        p.setBrush(Qt::NoBrush);p.setPen(QPen(QColor("#24dcf8"),2,Qt::SolidLine,Qt::RoundCap));
+        p.setBrush(Qt::NoBrush);p.setPen(QPen(accent,2,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));
         const qreal cx=width()/2.0,cy=height()/2.0-side*0.27;
-        QPainterPath bell;bell.moveTo(cx-9,cy+6);bell.lineTo(cx-7,cy+1);
-        bell.lineTo(cx-7,cy-6);bell.cubicTo(cx-7,cy-15,cx+7,cy-15,cx+7,cy-6);
-        bell.lineTo(cx+7,cy+1);bell.lineTo(cx+9,cy+6);bell.closeSubpath();p.drawPath(bell);
-        p.drawArc(QRectF(cx-3,cy+6,6,6),180*16,180*16);
+        p.drawEllipse(QPointF(cx,cy),11,11);
+        p.drawLine(QPointF(cx,cy),QPointF(cx,cy-6));
+        p.drawLine(QPointF(cx,cy),QPointF(cx+5,cy+3));
+        p.restore();
     }
 private:
+    bool lastSeconds() const {return remaining_>0 && remaining_<=10;}
+    void refreshAnimation() {
+        if(lastSeconds() && isVisible()) {if(!pulseTimer_.isActive())pulseTimer_.start();}
+        else pulseTimer_.stop();
+    }
     int remaining_ = 60;
     int total_ = 60;
+    QTimer pulseTimer_;
+    QElapsedTimer beat_;
 };
 
 QWidget* StreamDock::buildCountdown()

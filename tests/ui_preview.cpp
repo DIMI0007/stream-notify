@@ -15,8 +15,8 @@
 struct DockPreview {
     static bool live(const StreamDock& panel){return panel.broadcasting_;}
     static quint64 session(const StreamDock& panel){return panel.generation_;}
-    static void countdown(StreamDock& panel) {
-        panel.session_.delay=60;panel.session_.resultSeconds=45;
+    static void countdown(StreamDock& panel,int seconds=60) {
+        panel.session_.delay=seconds;panel.session_.resultSeconds=45;
         panel.session_.telegram=true;panel.session_.discord=true;
         panel.elapsed_.start();panel.phase_=StreamDock::Phase::Counting;panel.rebuild();
     }
@@ -98,7 +98,23 @@ int main(int argc,char** argv) {
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
     if(!save("07-donations-bottom"))return 1;
     DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
+    QPointer<QTimer> pulse=panel.findChild<QTimer*>("CountdownPulseTimer");
+    if(!pulse || pulse->isActive())return 22; // No animation outside the final ten seconds.
+    DockPreview::countdown(panel,10);pump();
+    pulse=panel.findChild<QTimer*>("CountdownPulseTimer");
+    if(!pulse || !pulse->isActive())return 23;
+    const QSize pulseSize=panel.size();
+    if(!save("13-countdown-last10"))return 1;
+    const QImage beforePulse=panel.grab().toImage();
+    for(int i=0;i<7;++i)pump();
+    const QImage afterPulse=panel.grab().toImage();
+    if(beforePulse==afterPulse || panel.size()!=pulseSize)return 24;
+    if(!save("14-countdown-pulse"))return 1;
+    panel.hide();pump();if(pulse->isActive())return 25;
+    panel.show();pump();if(!pulse->isActive())return 26;
     DockPreview::result(panel);if(!save("09-result"))return 1;
+    if(pulse)return 27; // The ring and its timer must be destroyed on phase change.
+    std::cout<<"Countdown pulse: final-ten-seconds only, visible frames, stable layout, hide/resume and disposal passed\\n";
     streamPreviewOutputs={{false,true}}; // Recording must not announce.
     panel.refreshStreamingState();pump();if(DockPreview::live(panel))return 2;
     const auto before=DockPreview::session(panel);
