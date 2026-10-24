@@ -1,0 +1,46 @@
+name: Prepare approved donation brand icons
+on:
+  push:
+    branches: [assets/donation-service-logos]
+    paths: [.github/workflows/prepare-brand-icons.yml]
+permissions:
+  contents: read
+jobs:
+  icons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SVG renderer for asset preparation only
+        run: python -m pip install cairosvg==2.8.2
+      - name: Retrieve official marks and render transparent PNGs
+        shell: python
+        run: |
+          import base64, hashlib, pathlib, urllib.request
+          import cairosvg
+          root=pathlib.Path("brand-assets")
+          root.mkdir()
+          sources={
+              "donationalerts": "https://www.donationalerts.com/img/brand/da.svg",
+              "donatepay": "https://donatepay.ru/build/assets/logo-new-mini-2dbd7bd3.svg",
+          }
+          for name,url in sources.items():
+              request=urllib.request.Request(url,headers={"User-Agent":"StreamNotify-brand-asset-preparation/1.0"})
+              with urllib.request.urlopen(request,timeout=30) as response:
+                  source=response.read(1024*1024)
+              (root/(name+".svg")).write_bytes(source)
+              png=cairosvg.svg2png(bytestring=source,output_width=256,output_height=256)
+              (root/(name+".png")).write_bytes(png)
+              print("SOURCE:"+name+":"+url)
+              for ext,data in [("svg",source),("png",png)]:
+                  print("ASSET_BEGIN:"+name+"."+ext)
+                  encoded=base64.b64encode(data).decode()
+                  for i in range(0,len(encoded),1000):
+                      print("ASSET_DATA:"+encoded[i:i+1000])
+                  print("ASSET_END")
+                  print("SHA256:"+name+"."+ext+":"+hashlib.sha256(data).hexdigest())
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Official-donation-brand-icons
+          path: brand-assets/
+          if-no-files-found: error
