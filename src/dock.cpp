@@ -877,7 +877,7 @@ QWidget* StreamDock::buildInterface()
     auto* about = card(&v);
     section(v,uiText("О плагине", "About"));
     v->addWidget(label("Stream Notify 1.0.0"));
-    v->addWidget(label(uiText("Анонсы стримов и донатов. Настройки хранятся на этом ПК.", "Stream and donation announcements. Settings are stored on this PC."), "Hint"));
+    v->addWidget(label(uiText("Анонсы стримов и донатов.\nНастройки хранятся на этом ПК.", "Stream and donation announcements.\nSettings are stored on this PC."), "Hint"));
     outer->addWidget(about);
     outer->addStretch();
     return body;
