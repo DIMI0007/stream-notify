@@ -35,7 +35,6 @@
 #include <QMap>
 #include <QProgressBar>
 #include <QTextBrowser>
-#include <QToolTip>
 #include <cmath>
 #include <algorithm>
 
@@ -515,26 +514,6 @@ QWidget* StreamDock::buildHome()
     addChannel(Channel::Telegram); addChannel(Channel::Discord);
 
 
-    auto* links = card(&v);
-    section(v, uiText("Ссылки на трансляцию", "Stream links"));
-    auto linkRow = [&](const QString& name, const QString& value) {
-        auto* row=new QHBoxLayout;row->setSpacing(8);row->addWidget(new ServiceBadge(name));
-        auto* textColumn=new QVBoxLayout;textColumn->setSpacing(2);
-        textColumn->addWidget(label(name,"Section"));
-        textColumn->addWidget(new LinkCaption(value.isEmpty()?uiText("Добавьте ссылку в настройках","Add a link in Settings"):value));
-        row->addLayout(textColumn,1);
-        auto* copy=btn(value.isEmpty()?uiText("Добавить","Add"):uiText("Копировать","Copy"));
-        copy->setToolTip(value.isEmpty()?uiText("Добавить ссылку на эфир","Add your stream link"):
-            uiText("Скопировать ссылку ","Copy link: ")+name);
-        connect(copy,&QPushButton::clicked,this,[this,copy,name,value] {
-            if(value.isEmpty()) {openConnections(name=="YouTube"?"YouTubeUrl":"TwitchUrl");return;}
-            QApplication::clipboard()->setText(value);
-            QToolTip::showText(copy->mapToGlobal(copy->rect().bottomLeft()),uiText("Ссылка скопирована","Link copied"),copy,QRect(),1200);
-        });
-        row->addWidget(copy);v->addLayout(row);
-    };
-    linkRow("YouTube", store_.current.youtubeUrl); linkRow("Twitch", store_.current.twitchUrl);
-    outer->addWidget(links);
     outer->addWidget(channelCard);
 
     auto* last = card(&v);

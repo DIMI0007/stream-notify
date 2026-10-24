@@ -108,17 +108,10 @@ int main(int argc,char** argv) {
         return panel.grab().save(output+"/"+name+".png");
     };
     if(!save("01-home"))return 1;
-    // Empty-state actions should open and reveal the correct settings field.
-    if(!click(QString::fromUtf8("Добавить")))return 28;
-    auto* urlField=panel.findChild<QLineEdit*>("YouTubeUrl");
-    if(!urlField)return 29;
-    bool revealed=false;
-    for(auto* scroll:panel.findChildren<QScrollArea*>())
-        if(scroll->widget() && scroll->widget()->isAncestorOf(urlField))
-            revealed=scroll->viewport()->rect().contains(urlField->mapTo(scroll->viewport(),urlField->rect().center()));
-    if(!revealed)return 30;
-    if(!click(QString::fromUtf8("Основное")) || !click(QString::fromUtf8("Настроить")) || !save("02-connections"))return 31;
-    if(!panel.findChild<QLineEdit*>("TelegramToken"))return 32;
+    // Home offers channel setup; stream URLs remain editable in Connections.
+    if(!click(QString::fromUtf8("Настроить")) || !save("02-connections"))return 31;
+    if(!panel.findChild<QLineEdit*>("TelegramToken") ||
+       !panel.findChild<QLineEdit*>("YouTubeUrl") || !panel.findChild<QLineEdit*>("TwitchUrl"))return 32;
     if(panel.findChild<QWidget*>("PluginResources") || panel.findChild<QWidget*>("OutputMonitor"))return 42;
     if(!click(QString::fromUtf8("Сообщение")) || !save("03-message"))return 1;
     if(!click(QString::fromUtf8("Интерфейс")) || !click(QString("English")))return 1;
