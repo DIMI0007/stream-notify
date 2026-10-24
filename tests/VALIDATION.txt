@@ -5,6 +5,10 @@ PASS: C++ donation threshold and fixed-rate conversion tests.
 PASS: Telegram channel-link normalization tests.
 PASS: Discord everyone opt-in/out payload, trailing suffix and length-limit tests (latest feature branch build).
 PASS: Qt navigation, language, compact-mode and modeled multistream start/deduplication/last-stop/restart checks.
+PASS: embedded official DonationAlerts and DonatePay artwork loads from Qt resources; dock rendered at normal and 200% scale.
+PASS: countdown pulses only in final ten seconds; changing rendered frames, stable layout, hide/resume and timer disposal checked in Qt preview.
+PASS: empty-state setup actions reveal the requested input; ready indicator timers stop when hidden and are destroyed on navigation.
+PASS: donation inactive statuses distinguish missing credentials, waiting for stream and disabled module without opening DonationAlerts/DonatePay connections.
 PASS: staged Schannel TLS backend with isolated Qt plugin paths.
 PASS: public Telegram HTTPS (HTTP 302) and Discord gateway HTTPS (HTTP 200), without credentials or messages.
 
