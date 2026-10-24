@@ -9,6 +9,7 @@ PASS: staged Schannel TLS backend with isolated Qt plugin paths.
 PASS: public Telegram HTTPS (HTTP 302) and Discord gateway HTTPS (HTTP 200), without credentials or messages.
 
 USER CONFIRMED: OBS dock loads; manual stream/donation notification tests delivered to Telegram and Discord.
+USER CONFIRMED: real stream startup tested (reported 2026-10-24).
 NOT CONFIRMED: end-to-end live donation ingestion on real DonationAlerts/DonatePay accounts.
 DonatePay remains experimental. Modeled output tests are not a complete real Aitum compatibility certification.
 
