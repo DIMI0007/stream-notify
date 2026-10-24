@@ -28,7 +28,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/wide 420 1050
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/short 280 580
+          & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/obs-dock 360 620
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
