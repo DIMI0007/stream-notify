@@ -52,7 +52,7 @@ QPushButton { color: #e1ebff; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,st
 QPushButton:hover { background: #2f4565; }
 QPushButton#ActiveNav { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #18203c,stop:1 #111e50); border: 1px solid #303e6c; border-bottom: 2px solid #6547ff; font-weight: 700; }
 QPushButton#Cancel { background: #16395b; border-color: #40b7ff; font-weight: 700; min-height: 28px; }
-QLineEdit,QTextEdit,QComboBox { color: #e7eeff; background: #0c1420; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
+QLineEdit,QTextEdit,QComboBox,QDoubleSpinBox { color: #e7eeff; background: #0c1420; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
 QComboBox QAbstractItemView { background: #101a2b; color: #e7eeff; }
 QCheckBox { color: #dce7fb; spacing: 6px; min-height: 20px; }
 QCheckBox::indicator { width: 16px; height: 16px; }
@@ -77,8 +77,11 @@ QString serviceStatus(const QString& value,bool russian) {
         {"Invalid or expired token",QString::fromUtf8("Токен недействителен или истёк")},
         {"Rate limited",QString::fromUtf8("Лимит запросов — подождите")},
         {"Network error",QString::fromUtf8("Ошибка соединения")},
-        {"Journal error",QString::fromUtf8("Ошибка журнала")}
+        {"Journal error",QString::fromUtf8("Ошибка журнала")},
+        {"No rates file: RUB only",QString::fromUtf8("Курсы не загружены — доступен RUB")},
+        {"Loading exchange rates",QString::fromUtf8("Загрузка курсов…")}
     };
+    if(value.startsWith("CBR /"))return QString(value).replace("currencies",QString::fromUtf8("валют"));
     return names.value(value,value);
 }
 
@@ -189,7 +192,10 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     connect(&donation_, &DonationEngine::updated, this, [this] {
         if(daStatusLabel_) daStatusLabel_->setText(serviceStatus(donation_.daStatus(),isRu()));
         if(dpStatusLabel_) dpStatusLabel_->setText(serviceStatus(donation_.dpStatus(),isRu()));
-        if(donationJournalLabel_) donationJournalLabel_->setText(donation_.journal().join("\n"));
+        if(donationJournalLabel_) {
+            const auto entries=donation_.journal();
+            donationJournalLabel_->setText(entries.isEmpty()?uiText("Пока нет донатов","No donations yet"):entries.mid(0,6).join("\n"));
+        }
     });
     broadcasting_ = obs_frontend_streaming_active();
     donation_.setLive(broadcasting_);
@@ -661,9 +667,9 @@ QWidget* StreamDock::buildDonations()
     section(v,uiText("Пороговые суммы", "Donation thresholds"));
     v->addWidget(label(uiText("Все пороги — в рублях. Курсы сохраняются один раз, без автообновлений.",
         "All thresholds are in RUB. Rates are saved once, without automatic refresh."),"Hint"));
-    auto* ratesLabel=label(donation_.ratesStatus(),"Hint");
+    auto* ratesLabel=label(serviceStatus(donation_.ratesStatus(),isRu()),"Hint");
     v->addWidget(ratesLabel);
-    connect(&donation_,&DonationEngine::updated,ratesLabel,[this,ratesLabel]{ratesLabel->setText(donation_.ratesStatus());});
+    connect(&donation_,&DonationEngine::updated,ratesLabel,[this,ratesLabel]{ratesLabel->setText(serviceStatus(donation_.ratesStatus(),isRu()));});
     auto* ratesButton=btn(uiText("Загрузить / обновить курсы", "Load / refresh rates"));
     connect(ratesButton,&QPushButton::clicked,this,[this]{donation_.fetchRates(true);});
     v->addWidget(ratesButton);
@@ -714,8 +720,8 @@ QWidget* StreamDock::buildDonations()
     auto* preview=label("","Hint");
     preview->setTextInteractionFlags(Qt::TextSelectableByMouse);
     auto updatePreview=[this,select,preview]() {
-        Donation test;test.service="DonationAlerts";test.id="preview";test.donor="Test donor";
-        test.message="Спасибо за стрим!";test.currency="RUB";
+        Donation test;test.service="DonationAlerts";test.id="preview";test.donor=uiText("Тестовый зритель","Test donor");
+        test.message=uiText("Спасибо за стрим!","Thanks for the stream!");test.currency="RUB";
         test.amount=select->currentIndex()==0?100:select->currentIndex()==1?500:2000;
         const QString url=!store_.current.youtubeUrl.isEmpty()?store_.current.youtubeUrl:store_.current.twitchUrl;
         preview->setText(donationMessage(test,store_.current.donations,select->currentIndex(),url));
@@ -743,9 +749,20 @@ QWidget* StreamDock::buildDonations()
 
     auto* journal=card(&v);
     section(v,uiText("Журнал донатов и доставки", "Donation and delivery log"));
-    donationJournalLabel_=label(donation_.journal().join("\n"),"Hint");
+    const auto recentDonations=donation_.journal();
+    donationJournalLabel_=label(recentDonations.isEmpty()?uiText("Пока нет донатов","No donations yet"):recentDonations.mid(0,6).join("\n"),"Hint");
     donationJournalLabel_->setTextInteractionFlags(Qt::TextSelectableByMouse);
     v->addWidget(donationJournalLabel_);
+    auto* fullLog=btn(uiText("Весь журнал","Full log"));
+    connect(fullLog,&QPushButton::clicked,this,[this] {
+        QMessageBox box(this);box.setWindowTitle(uiText("Журнал донатов","Donation log"));
+        const auto entries=donation_.journal();
+        box.setText(entries.isEmpty()?uiText("Пока нет донатов","No donations yet"):
+            uiText("Последние записи доставки. Нажмите «Показать подробности».","Recent delivery records. Open Show Details."));
+        if(!entries.isEmpty())box.setDetailedText(entries.join("\n"));
+        box.exec();
+    });
+    v->addWidget(fullLog);
     outer->addWidget(journal);
     outer->addStretch();
     return body;
@@ -807,7 +824,7 @@ QWidget* StreamDock::buildInterface()
     auto* about = card(&v);
     section(v,uiText("О плагине", "About"));
     v->addWidget(label("Stream Notify 1.0.0"));
-    v->addWidget(label(uiText("Встроенная панель OBS без фонового опроса. Данные остаются на вашем ПК.", "Native OBS dock without background polling. Data stays on your PC."), "Hint"));
+    v->addWidget(label(uiText("Анонсы стримов и донатов. Настройки хранятся на этом ПК.", "Stream and donation announcements. Settings are stored on this PC."), "Hint"));
     outer->addWidget(about);
     outer->addStretch();
     return body;
@@ -940,14 +957,14 @@ QWidget* StreamDock::buildResult()
     auto* symbol = label(allOk ? "✔" : partial ? "⚠" : "✕");
     QFont big = symbol->font(); big.setPointSize(46); big.setBold(true); symbol->setFont(big);
     symbol->setFixedSize(76,76);
-    symbol->setStyleSheet(allOk ? "color:#ffffff;background:#00ad69;border:2px solid #00e593;border-radius:38px;" : "color:#ffffff;");
-    symbol->setAlignment(Qt::AlignHCenter);
+    symbol->setStyleSheet(allOk ? "color:#ffffff;background:#00ad69;border:2px solid #00e593;border-radius:38px;font-size:44px;font-weight:700;" : "color:#ffffff;font-size:44px;font-weight:700;");
+    symbol->setAlignment(Qt::AlignCenter);
     v->addWidget(symbol,0,Qt::AlignHCenter);
     auto* title = label(allOk ? uiText("Уведомления отправлены", "Notifications sent") :
        partial ? uiText("Отправлено частично", "Partially delivered") : uiText("Не удалось отправить", "Delivery failed"));
     title->setAlignment(Qt::AlignHCenter);
     QFont font = title->font(); font.setPointSize(15); font.setBold(true); title->setFont(font);
-    title->setStyleSheet("color:#ffffff;");
+    title->setStyleSheet("color:#e7fff4;font-size:17px;font-weight:700;");
     v->addWidget(title);
     QVBoxLayout* results;
     auto* cardWidget = card(&results);
