@@ -40,6 +40,7 @@ QWidget { font-size: 12px; }
 QWidget#PageBody, QWidget#ScrollViewport { background:#080f18; }
 QPushButton:disabled { color:#6c7890;border-color:#273246; }
 QWidget#StreamRoot { background: #080f18; color: #dfe8ff; }
+QWidget#WaitingCard { background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #211e16,stop:1 #0c151e);border:1px solid #51452b;border-radius:8px; }
 QWidget#Card { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101925,stop:1 #0b131e); border: 1px solid #263244; border-radius: 8px; }
 QLabel { color: #dfe8ff; background: transparent; }
 QLabel#Hint { color: #9baccc; }
@@ -63,7 +64,12 @@ QCheckBox::indicator:unchecked { border-radius: 4px; background: #344357; border
 QCheckBox::indicator:checked { border-radius: 4px; background: #00d37d; border: 1px solid #2ff9a0; }
 QScrollArea { border: 0; background: transparent; }
 QScrollBar:vertical { border: none; background: #101929; width: 9px; }
-QScrollBar::handle:vertical { background: #384d6c; border-radius: 4px; }
+QScrollBar::handle:vertical { background: #384d6c; border-radius: 4px;min-height:24px; }
+QScrollBar::handle:vertical:hover { background:#52698d; }
+QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {height:0px;background:transparent;border:0;}
+QScrollBar::add-page:vertical,QScrollBar::sub-page:vertical {background:transparent;}
+QLineEdit:focus,QTextEdit:focus,QComboBox:focus,QDoubleSpinBox:focus {border-color:#776af5;background:#111c2e;}
+
 )";
 
 QString serviceStatus(const QString& value,bool russian) {
@@ -402,9 +408,12 @@ QWidget* StreamDock::buildHome()
     outer->addWidget(enabled);
 
     auto* status = card(&v);
+    if(!broadcasting_)status->setObjectName("WaitingCard");
     section(v, uiText("Статус трансляции", "Stream status"));
     QString state = broadcasting_ ? uiText("● Стрим активен", "● Stream is live") : uiText("◉ Ожидание трансляции", "◉ Waiting for stream");
-    v->addWidget(label(state, broadcasting_ ? "Good" : "Waiting"));
+    auto* stateRow=new QHBoxLayout;stateRow->setSpacing(8);
+    stateRow->addWidget(new ServiceBadge(broadcasting_?"Stream Notify":"Waiting"));
+    stateRow->addWidget(label(state,broadcasting_?"Good":"Waiting"),1);v->addLayout(stateRow);
     QString hint = statusText_;
     if (hint.isEmpty()) hint = broadcasting_ ? uiText("Рассылка не запущена", "No notification pending") :
       uiText("Начните эфир в OBS или Aitum", "Go live with OBS or Aitum");
@@ -417,12 +426,13 @@ QWidget* StreamDock::buildHome()
         const bool tg = (c == Channel::Telegram);
         auto* h = new QHBoxLayout;
         h->addWidget(new ServiceBadge(tg ? "Telegram" : "Discord"));
-        h->addWidget(label(tg ? "Telegram" : "Discord", "Section"));
+        auto* details=new QVBoxLayout;details->setSpacing(2);
+        details->addWidget(label(tg ? "Telegram" : "Discord","Section"));
         QString st = ! (tg ? store_.current.telegramEnabled : store_.current.discordEnabled) ? uiText("Отключён", "Disabled") :
             (tg ? validTelegram(store_.current.telegramToken, store_.current.telegramChat) : validDiscord(store_.current.discordWebhook)) ?
                 uiText("● Готов", "● Ready") : uiText("⚠ Не настроен", "⚠ Not configured");
-        h->addWidget(label(st, "Hint"));
-        h->addStretch();
+        details->addWidget(label(st,"Hint"));
+        h->addLayout(details,1);
         auto* test = btn(uiText("Тест", "Test"));
         test->setEnabled(!(tg ? testingTelegram_ : testingDiscord_));
         connect(test, &QPushButton::clicked, this, [this,c] {testChannel(c);});
@@ -437,15 +447,14 @@ QWidget* StreamDock::buildHome()
     auto* links = card(&v);
     section(v, uiText("Ссылки на трансляцию", "Stream links"));
     auto linkRow = [&](const QString& name, const QString& value) {
-        serviceSection(v,name);
-        auto* h = new QHBoxLayout;
-        auto* text = label(value.isEmpty() ? uiText("Не задана", "Not set") : value, "Hint");
-        text->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        h->addWidget(text,1);
-        auto* copy = btn(uiText("Копировать", "Copy"));
-        connect(copy, &QPushButton::clicked, this, [value] {QApplication::clipboard()->setText(value);});
-        h->addWidget(copy);
-        v->addLayout(h);
+        auto* row=new QHBoxLayout;row->setSpacing(8);row->addWidget(new ServiceBadge(name));
+        auto* textColumn=new QVBoxLayout;textColumn->setSpacing(2);
+        textColumn->addWidget(label(name,"Section"));
+        textColumn->addWidget(new LinkCaption(value.isEmpty()?uiText("Добавьте ссылку в настройках","Add a link in Settings"):value));
+        row->addLayout(textColumn,1);
+        auto* copy=btn(uiText("Копировать","Copy"));copy->setEnabled(!value.isEmpty());
+        connect(copy,&QPushButton::clicked,this,[value]{QApplication::clipboard()->setText(value);});
+        row->addWidget(copy);v->addLayout(row);
     };
     linkRow("YouTube", store_.current.youtubeUrl); linkRow("Twitch", store_.current.twitchUrl);
     outer->addWidget(links);
@@ -886,11 +895,16 @@ protected:
         p.setRenderHint(QPainter::Antialiasing);
         const int side = std::min(width(), height()) - 17;
         const QRectF r((width()-side)/2.0, (height()-side)/2.0, side, side);
+        QRadialGradient halo(r.center(),side/2.0);halo.setColorAt(0,QColor("#0d2635"));halo.setColorAt(1,QColor("#080f18"));
+        p.setPen(Qt::NoPen);p.setBrush(halo);p.drawEllipse(r);
         p.setBrush(Qt::NoBrush);
         p.setPen(QPen(QColor("#26364d"), 10, Qt::SolidLine, Qt::RoundCap));
         p.drawEllipse(r);
         p.setPen(QPen(QColor("#24dcf8"), 10, Qt::SolidLine, Qt::RoundCap));
         p.drawArc(r,90*16, -int(360.0*16*remaining_/total_));
+        const double angle=(90.0-360.0*remaining_/total_)*3.14159265358979323846/180.0;
+        const QPointF tip(r.center().x()+r.width()/2*std::cos(angle),r.center().y()-r.height()/2*std::sin(angle));
+        p.setPen(Qt::NoPen);p.setBrush(QColor("#6ef2ff"));p.drawEllipse(tip,5,5);
         p.setPen(QColor("#e4f3ff"));
         QFont f=font(); f.setPixelSize(std::clamp(int(side*0.22),32,60)); f.setBold(true); p.setFont(f);
         const QString minutes=QString("%1:").arg(remaining_/60,2,10,QChar('0'));
@@ -902,7 +916,7 @@ protected:
         p.setPen(QColor("#24dcf8"));
         p.drawText(QPointF(start+metrics.horizontalAdvance(minutes),baseline),seconds);
         p.setBrush(Qt::NoBrush);p.setPen(QPen(QColor("#24dcf8"),2,Qt::SolidLine,Qt::RoundCap));
-        const qreal cx=width()/2.0,cy=height()/2.0-37;
+        const qreal cx=width()/2.0,cy=height()/2.0-side*0.27;
         QPainterPath bell;bell.moveTo(cx-9,cy+6);bell.lineTo(cx-7,cy+1);
         bell.lineTo(cx-7,cy-6);bell.cubicTo(cx-7,cy-15,cx+7,cy-15,cx+7,cy-6);
         bell.lineTo(cx+7,cy+1);bell.lineTo(cx+9,cy+6);bell.closeSubpath();p.drawPath(bell);
@@ -1003,11 +1017,7 @@ QWidget* StreamDock::buildResult()
     body->setObjectName("PageBody");
     auto* v = column(body, 16, 13);
     v->addSpacing(16);
-    auto* symbol = label(allOk ? "✔" : partial ? "⚠" : "✕");
-    QFont big = symbol->font(); big.setPointSize(46); big.setBold(true); symbol->setFont(big);
-    symbol->setFixedSize(88,88);
-    symbol->setStyleSheet(allOk ? "color:#ffffff;background:#00ad69;border:2px solid #00e593;border-radius:44px;font-size:50px;font-weight:700;" : "color:#ffffff;font-size:50px;font-weight:700;");
-    symbol->setAlignment(Qt::AlignCenter);
+    auto* symbol=new ResultEmblem(allOk?0:partial?1:2);
     v->addWidget(symbol,0,Qt::AlignHCenter);
     auto* title = label(allOk ? uiText("Уведомления отправлены", "Notifications sent") :
        partial ? uiText("Отправлено частично", "Partially delivered") : uiText("Не удалось отправить", "Delivery failed"));
@@ -1042,6 +1052,9 @@ QWidget* StreamDock::buildResult()
     progress->setFixedHeight(6);
     progress->setStyleSheet("QProgressBar {background:#1b293b;border:0;border-radius:3px;} QProgressBar::chunk {background:#00db89;border-radius:3px;}");
     returnLayout->addWidget(progress);
+    auto* back=btn(uiText("На основную","Back to Home"));back->setIcon(streamNavIcon("home"));
+    connect(back,&QPushButton::clicked,this,[this]{resultTimer_.stop();page_=Page::Home;showPhase(Phase::Idle);});
+    returnLayout->addWidget(back);
     v->addWidget(returnCard);
     auto* tick=new QTimer(progress);tick->setInterval(1000);
     connect(tick,&QTimer::timeout,progress,[this,progress,hint] {

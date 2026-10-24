@@ -30,7 +30,9 @@ int main(int argc,char** argv) {
     QApplication app(argc,argv);app.setStyle("Fusion");app.setFont(QFont("Segoe UI",9));
     const QString output=argc>1?QString::fromLocal8Bit(argv[1]):QString("ui-previews");
     QDir().mkpath(output);
-    StreamDock panel;panel.resize(290,900);panel.show();pump();
+    const int width=argc>2?QString::fromLocal8Bit(argv[2]).toInt():290;
+    const int height=argc>3?QString::fromLocal8Bit(argv[3]).toInt():900;
+    StreamDock panel;panel.resize(width,height);panel.show();pump();
     auto click=[&](const QString& text) {
         for(auto* button:panel.findChildren<QPushButton*>())
             if(button->text().contains(text) && button->isEnabled()){button->click();pump();return true;}

@@ -3,6 +3,8 @@
 #include <QFontMetrics>
 #include <algorithm>
 #include <QPainter>
+#include <QRadialGradient>
+#include <QResizeEvent>
 #include <QPainterPath>
 #include <QIcon>
 #include <QPixmap>
@@ -50,7 +52,7 @@ protected:
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);p.scale(width()/32.0,height()/32.0);
         QColor color=name_=="Telegram"?QColor("#009aef"):name_=="Discord"?QColor("#5865f2"):
             name_=="YouTube"?QColor("#ff1538"):name_=="Twitch"?QColor("#9146ff"):
-            name_=="DonationAlerts"?QColor("#f47e20"):name_=="DonatePay"?QColor("#10bb7c"):QColor("#06382c");
+            name_=="DonationAlerts"?QColor("#f47e20"):name_=="DonatePay"?QColor("#10bb7c"):name_=="Waiting"?QColor("#3d3219"):QColor("#06382c");
         p.setPen(Qt::NoPen);p.setBrush(color);p.drawRoundedRect(QRectF(0,0,32,32),9,9);
         p.setBrush(Qt::white);
         if(name_=="Telegram") {
@@ -69,9 +71,10 @@ protected:
             QPainterPath bubble;bubble.moveTo(7,6);bubble.lineTo(26,6);bubble.lineTo(26,21);
             bubble.lineTo(20,27);bubble.lineTo(14,27);bubble.lineTo(10,30);bubble.lineTo(10,25);bubble.lineTo(7,25);bubble.closeSubpath();
             p.drawPath(bubble);p.setPen(QPen(color,2));p.drawLine(15,11,15,19);p.drawLine(21,11,21,19);
-        } else if(name_=="Stream Notify") {
-            p.setBrush(QColor("#00df8c"));p.drawEllipse(QPointF(16,16),3,3);
-            p.setBrush(Qt::NoBrush);p.setPen(QPen(QColor("#00df8c"),2.5,Qt::SolidLine,Qt::RoundCap));
+        } else if((name_=="Stream Notify" || name_=="Waiting")) {
+            const QColor broadcast=name_=="Waiting"?QColor("#ffda49"):QColor("#00df8c");
+            p.setBrush(broadcast);p.drawEllipse(QPointF(16,16),3,3);
+            p.setBrush(Qt::NoBrush);p.setPen(QPen(broadcast,2.5,Qt::SolidLine,Qt::RoundCap));
             p.drawArc(QRectF(7,7,18,18),-50*16,100*16);p.drawArc(QRectF(7,7,18,18),130*16,100*16);
             p.drawArc(QRectF(3,3,26,26),-45*16,90*16);p.drawArc(QRectF(3,3,26,26),135*16,90*16);
         } else {
@@ -127,3 +130,42 @@ inline QIcon streamNavIcon(const QString& kind,bool active=false) {
     }
     p.end();image.setDevicePixelRatio(2);return QIcon(image);
 }
+
+class LinkCaption final : public QLabel {
+public:
+    explicit LinkCaption(const QString& text,QWidget* parent=nullptr):QLabel(text,parent),full_(text) {
+        setTextFormat(Qt::PlainText);setToolTip(text);setAccessibleName(text);
+        setMinimumWidth(0);setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);
+        setObjectName("Hint");
+    }
+protected:
+    void resizeEvent(QResizeEvent* event) override {
+        QLabel::resizeEvent(event);
+        setText(fontMetrics().elidedText(full_,Qt::ElideMiddle,std::max(1,width())));
+    }
+private: QString full_;
+};
+class ResultEmblem final : public QWidget {
+public:
+    explicit ResultEmblem(int state,QWidget* parent=nullptr):QWidget(parent),state_(state) {
+        setFixedSize(116,116);
+        setAccessibleName(state==0?"Success":state==1?"Partial delivery":"Delivery failed");
+    }
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
+        const QColor color=state_==0?QColor("#00df89"):state_==1?QColor("#ffcd57"):QColor("#ff647e");
+        QColor haloColor=color;haloColor.setAlpha(55);
+        QRadialGradient halo(QPointF(58,58),57);halo.setColorAt(0.4,haloColor);halo.setColorAt(1,Qt::transparent);
+        p.setPen(Qt::NoPen);p.setBrush(halo);p.drawEllipse(QPointF(58,58),57,57);
+        QColor edge=color;edge.setAlpha(90);p.setBrush(Qt::NoBrush);p.setPen(QPen(edge,1));
+        p.drawEllipse(QPointF(58,58),49,49);
+        QLinearGradient fill(20,15,95,100);fill.setColorAt(0,color);fill.setColorAt(1,color.darker(160));
+        p.setBrush(fill);p.setPen(QPen(color.lighter(115),2));p.drawEllipse(QPointF(58,58),41,41);
+        p.setBrush(Qt::NoBrush);p.setPen(QPen(Qt::white,6,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));
+        if(state_==0) {QPainterPath mark;mark.moveTo(38,58);mark.lineTo(52,72);mark.lineTo(79,43);p.drawPath(mark);}
+        else if(state_==1){p.drawLine(58,37,58,62);p.drawPoint(58,77);}
+        else {p.drawLine(43,43,73,73);p.drawLine(73,43,43,73);}
+    }
+private:int state_;
+};
