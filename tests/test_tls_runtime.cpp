@@ -5,6 +5,8 @@
 #include <QNetworkReply>
 #include <QTimer>
 #include <QFileInfo>
+#include <functional>
+#include <memory>
 #include <iostream>
 int main(int argc,char** argv) {
     QCoreApplication app(argc,argv);
@@ -18,20 +20,30 @@ int main(int argc,char** argv) {
     }
     std::cout<<"Packaged Schannel TLS backend loaded\n";
     QNetworkAccessManager network;
-    QNetworkRequest request(QUrl("https://api.telegram.org/"));
-    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
-    request.setTransferTimeout(20000);
-    auto* reply=network.get(request);
-    bool sslErrors=false,finished=false;int result=4;
-    QObject::connect(reply,&QNetworkReply::sslErrors,&app,[&](const auto&){sslErrors=true;});
-    QObject::connect(reply,&QNetworkReply::finished,&app,[&]{
-        finished=true;
-        const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        if(!sslErrors && status>=200 && status<500) {
-            std::cout<<"Telegram HTTPS handshake verified, HTTP "<<status<<"\n";result=0;
-        } else std::cerr<<"Telegram HTTPS check failed, HTTP "<<status<<", Qt network code "<<int(reply->error())<<"\n";
-        reply->deleteLater();app.quit();
-    });
-    QTimer::singleShot(25000,&app,[&]{if(!finished)reply->abort();app.quit();});
-    app.exec();return result;
+    const QStringList endpoints={"https://api.telegram.org/","https://discord.com/api/v10/gateway"};
+    int index=0,result=0;bool done=false;
+    std::function<void()> next;
+    next=[&] {
+        if(index>=endpoints.size()){done=true;app.quit();return;}
+        const int current=index++;
+        QNetworkRequest request{QUrl(endpoints[current])};
+        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
+        request.setTransferTimeout(15000);
+        auto* reply=network.get(request);
+        auto sslErrors=std::make_shared<bool>(false);
+        QObject::connect(reply,&QNetworkReply::sslErrors,&app,[sslErrors](const auto&){*sslErrors=true;});
+        QObject::connect(reply,&QNetworkReply::finished,&app,[&,reply,current,sslErrors] {
+            const int status=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            const char* service=current==0?"Telegram":"Discord";
+            if(!*sslErrors && status>=200 && status<500)
+                std::cout<<service<<" HTTPS handshake verified, HTTP "<<status<<"\n";
+            else {
+                std::cerr<<service<<" HTTPS check failed, HTTP "<<status<<", Qt network code "<<int(reply->error())<<"\n";
+                result=4;
+            }
+            reply->deleteLater();next();
+        });
+    };
+    QTimer::singleShot(35000,&app,[&]{if(!done){result=5;app.quit();}});
+    next();app.exec();return result;
 }
