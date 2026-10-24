@@ -185,6 +185,13 @@ void StreamDock::rebuild()
         saveLabel_->setAlignment(Qt::AlignCenter);
         root_->addWidget(saveLabel_);
     }
+    auto* author = new QLabel(QString::fromUtf8("Автор: ") +
+        "<a href=\"https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/\"><span style=\"color:#59dfff;\">OTMOPOZOK</span></a>");
+    author->setTextFormat(Qt::RichText);
+    author->setOpenExternalLinks(true);
+    author->setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard);
+    author->setAlignment(Qt::AlignCenter);
+    root_->addWidget(author);
 }
 
 QWidget* StreamDock::buildRegular()
