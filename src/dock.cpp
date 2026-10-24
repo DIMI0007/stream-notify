@@ -183,6 +183,7 @@ private:
 StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_(this), testSender_(this), donation_(&store_,this)
 {
     setObjectName("StreamRoot");
+    setAttribute(Qt::WA_StyledBackground,true);
     setMinimumWidth(275);
     setStyleSheet(css);
     loadedCleanly_ = store_.load();
@@ -301,6 +302,14 @@ void StreamDock::rebuildNow()
         v->addWidget(label(uiText("Отправка отменена", "Notification cancelled"), "Section"), 0, Qt::AlignHCenter);
         v->addWidget(label(uiText("Текущий эфир больше не будет объявлен", "No notification will be sent for this stream")), 0, Qt::AlignHCenter);
         v->addStretch();
+    }
+    if(phase_!=Phase::Idle) {
+        auto* scroll=new QScrollArea;
+        scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        scroll->viewport()->setObjectName("ScrollViewport");
+        if(central_->objectName().isEmpty())central_->setObjectName("PageBody");
+        scroll->setWidget(central_);central_=scroll;
     }
     root_->addWidget(central_, 1);
     if (phase_ == Phase::Idle) {
@@ -861,7 +870,14 @@ QWidget* StreamDock::buildInterface()
 // Circular progress is repainted once per second only while counting.
 class CountdownRing final : public QWidget {
 public:
-    explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {setMinimumSize(200,200);}
+    explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {
+        setMinimumSize(160,160);setMaximumSize(320,320);
+        QSizePolicy policy(QSizePolicy::Preferred,QSizePolicy::Preferred);policy.setHeightForWidth(true);setSizePolicy(policy);
+    }
+    QSize sizeHint() const override {return QSize(320,320);}
+    QSize minimumSizeHint() const override {return QSize(160,160);}
+    bool hasHeightForWidth() const override {return true;}
+    int heightForWidth(int width) const override {return std::clamp(width,160,320);}
     void setValues(int remaining, int total) { remaining_=remaining; total_=std::max(1,total); update(); }
 protected:
     void paintEvent(QPaintEvent*) override
@@ -876,7 +892,7 @@ protected:
         p.setPen(QPen(QColor("#24dcf8"), 10, Qt::SolidLine, Qt::RoundCap));
         p.drawArc(r,90*16, -int(360.0*16*remaining_/total_));
         p.setPen(QColor("#e4f3ff"));
-        QFont f=font(); f.setPointSize(30); f.setBold(true); p.setFont(f);
+        QFont f=font(); f.setPixelSize(std::clamp(int(side*0.22),32,60)); f.setBold(true); p.setFont(f);
         const QString minutes=QString("%1:").arg(remaining_/60,2,10,QChar('0'));
         const QString seconds=QString("%1").arg(remaining_%60,2,10,QChar('0'));
         const QFontMetricsF metrics(f);
@@ -900,15 +916,17 @@ private:
 QWidget* StreamDock::buildCountdown()
 {
     auto* body = new QWidget;
+    body->setObjectName("PageBody");
     auto* v = column(body, 12, 7);
-    v->addStretch(1);
+    v->addSpacing(12);
     auto* heading = label(uiText("До отправки уведомлений", "Until notifications are sent"),"Section");
     heading->setAlignment(Qt::AlignCenter);
-    v->addWidget(heading);
+
     auto* ring = new CountdownRing;
     ring_ = ring;
     ring->setValues(std::max(0, session_.delay - int(elapsed_.elapsed()/1000)),session_.delay);
     v->addWidget(ring, 0, Qt::AlignHCenter);
+    v->addWidget(heading);
     auto* help = label(uiText("Уведомления будут отправлены после таймера", "Messages will be sent when the timer expires"),"Hint");
     help->setAlignment(Qt::AlignCenter);
     v->addWidget(help);
@@ -916,8 +934,14 @@ QWidget* StreamDock::buildCountdown()
     QVBoxLayout* channels;
     auto* box = card(&channels);
     section(channels,uiText("Активные каналы", "Active channels"));
-    channels->addWidget(label(QString("Telegram: %1").arg(session_.telegram ? uiText("● ВКЛ", "● ON") : uiText("выключен", "off"))));
-    channels->addWidget(label(QString("Discord: %1").arg(session_.discord ? uiText("● ВКЛ", "● ON") : uiText("выключен", "off"))));
+    auto addChannel=[this,channels](const QString& name,bool enabled) {
+        auto* row=new QHBoxLayout;row->setSpacing(7);
+        row->addWidget(new ServiceBadge(name));
+        row->addWidget(label(name,"Section"),1);
+        row->addWidget(label(enabled?uiText("● Вкл","● On"):uiText("Выключен","Off"),enabled?"Good":"Hint"));
+        channels->addLayout(row);
+    };
+    addChannel("Telegram",session_.telegram);addChannel("Discord",session_.discord);
     channels->addWidget(label(uiText("Задержка: %1 сек.", "Delay: %1 sec.").arg(session_.delay),"Hint"));
     v->addWidget(box);
     auto* cancel = btn(uiText("■  Отменить отправку", "■  Cancel notification"));
@@ -976,16 +1000,13 @@ QWidget* StreamDock::buildResult()
     const bool allOk = (!session_.telegram || tgSent) && (!session_.discord || dcSent);
     const bool partial = (tgSent || dcSent) && !allOk;
     auto* body = new QWidget;
-    body->setObjectName("ResultPanel");
-    if(allOk) body->setStyleSheet("QWidget#ResultPanel {background-color: #0a1b19;border: 1px solid #087b52;border-radius: 15px;}");
-    else if (partial) body->setStyleSheet("QWidget#ResultPanel {background-color: #211c13;border: 1px solid #946629;border-radius: 15px;}");
-    else body->setStyleSheet("QWidget#ResultPanel {background-color: #24151b;border: 1px solid #9e4255;border-radius: 15px;}");
+    body->setObjectName("PageBody");
     auto* v = column(body, 16, 13);
-    v->addStretch();
+    v->addSpacing(16);
     auto* symbol = label(allOk ? "✔" : partial ? "⚠" : "✕");
     QFont big = symbol->font(); big.setPointSize(46); big.setBold(true); symbol->setFont(big);
-    symbol->setFixedSize(76,76);
-    symbol->setStyleSheet(allOk ? "color:#ffffff;background:#00ad69;border:2px solid #00e593;border-radius:38px;font-size:44px;font-weight:700;" : "color:#ffffff;font-size:44px;font-weight:700;");
+    symbol->setFixedSize(88,88);
+    symbol->setStyleSheet(allOk ? "color:#ffffff;background:#00ad69;border:2px solid #00e593;border-radius:44px;font-size:50px;font-weight:700;" : "color:#ffffff;font-size:50px;font-weight:700;");
     symbol->setAlignment(Qt::AlignCenter);
     v->addWidget(symbol,0,Qt::AlignHCenter);
     auto* title = label(allOk ? uiText("Уведомления отправлены", "Notifications sent") :
@@ -994,11 +1015,16 @@ QWidget* StreamDock::buildResult()
     QFont font = title->font(); font.setPointSize(15); font.setBold(true); title->setFont(font);
     title->setStyleSheet("color:#e7fff4;font-size:17px;font-weight:700;");
     v->addWidget(title);
+    auto* summary=label(allOk?uiText("Рассылка успешно завершена","Notifications delivered"):
+        uiText("Подробности по каждому каналу ниже","Details for each channel below"),"Hint");
+    summary->setAlignment(Qt::AlignCenter);v->addWidget(summary);
     QVBoxLayout* results;
     auto* cardWidget = card(&results);
     auto detail = [this,results](const QString& name, const Delivery& d) {
-        serviceSection(results,name);
-        results->addWidget(label(statusName(d),d.status==Outcome::Sent?"Good":"Hint"));
+        auto* row=new QHBoxLayout;row->setSpacing(7);
+        row->addWidget(new ServiceBadge(name));row->addWidget(label(name,"Section"),1);
+        row->addWidget(label(statusName(d),d.status==Outcome::Sent?"Good":"Hint"));
+        results->addLayout(row);
         if (d.status == Outcome::Failed || d.status == Outcome::Unknown || d.status == Outcome::NotConfigured) {
             results->addWidget(label(d.detail,"Hint"));
         }
@@ -1008,12 +1034,15 @@ QWidget* StreamDock::buildResult()
     auto* hint = label(uiText("Панель автоматически вернётся через %1 секунд", "The normal panel will return in %1 seconds")
                        .arg(session_.resultSeconds),"Hint");
     hint->setAlignment(Qt::AlignCenter);
-    v->addWidget(hint);
+    QVBoxLayout* returnLayout;
+    auto* returnCard=card(&returnLayout);
+    returnLayout->addWidget(hint);
     auto* progress=new QProgressBar;
     progress->setRange(0,session_.resultSeconds);progress->setValue(session_.resultSeconds);progress->setTextVisible(false);
     progress->setFixedHeight(6);
     progress->setStyleSheet("QProgressBar {background:#1b293b;border:0;border-radius:3px;} QProgressBar::chunk {background:#00db89;border-radius:3px;}");
-    v->addWidget(progress);
+    returnLayout->addWidget(progress);
+    v->addWidget(returnCard);
     auto* tick=new QTimer(progress);tick->setInterval(1000);
     connect(tick,&QTimer::timeout,progress,[this,progress,hint] {
         const int remaining=std::max(0,(resultTimer_.remainingTime()+999)/1000);
