@@ -602,10 +602,13 @@ QWidget* StreamDock::buildMessage()
     auto* outer = column(body, 11, 3);
     QVBoxLayout* v;
     auto* templ = card(&v);
+    templ->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
+    v->setAlignment(Qt::AlignTop);
     section(v, uiText("Шаблон уведомления", "Notification template"));
     v->addWidget(label(uiText("Поддерживаются {youtube} и {twitch}", "Supports {youtube} and {twitch}"), "Hint"));
     auto* edit = new QTextEdit;
     edit->setFixedHeight(store_.current.compact?92:120);
+    edit->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
     edit->setPlainText(store_.current.message);
     connect(edit, &QTextEdit::textChanged, this, [this,edit] {store_.current.message=edit->toPlainText();changeSettings();});
     v->addWidget(edit);
@@ -619,6 +622,8 @@ QWidget* StreamDock::buildMessage()
     outer->addWidget(templ);
 
     auto* delay = card(&v);
+    delay->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
+    v->setAlignment(Qt::AlignTop);
     section(v,uiText("Задержка отправки", "Notification delay"));
     v->addWidget(label(uiText("После начала эфира, включая Aitum", "After going live, including Aitum"), "Hint"));
     auto* delayRow=new QHBoxLayout;delayRow->setSpacing(4);
@@ -635,6 +640,8 @@ QWidget* StreamDock::buildMessage()
     outer->addWidget(delay);
 
     auto* prev = card(&v);
+    prev->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
+    v->setAlignment(Qt::AlignTop);
     section(v,uiText("Предпросмотр", "Preview"));
     QString err;
     const QString preview = prepareMessage(store_.current, &err);
