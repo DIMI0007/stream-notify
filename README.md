@@ -6,6 +6,25 @@
 [Установка и обновление](docs/TEST_WINDOWS_RU.md) ·
 [Донаты](README_DONATIONS_RU.md) · [Валюты](docs/CURRENCY_RU.md)
 
+## Скриншоты
+
+Реальный интерфейс плагина в компактном доке. Снимки получены из Qt-кода в тестовом окне:
+настоящие токены и webhook не используются; результат отправки показан на демонстрационных данных.
+Нажмите на изображение, чтобы открыть его в полном размере.
+
+<table>
+<tr>
+<td align="center" valign="top"><b>Основная панель</b><br><a href="docs/screenshots/home.jpg"><img src="docs/screenshots/home.jpg" width="300" alt="Главная панель Stream Notify: статус трансляции, ссылки, Telegram и Discord"></a><br>Статус эфира, ссылки и получатели уведомлений.</td>
+<td align="center" valign="top"><b>Подключения</b><br><a href="docs/screenshots/connections.jpg"><img src="docs/screenshots/connections.jpg" width="300" alt="Настройки Telegram и Discord с переключателем everyone"></a><br>Настройка каналов и переключатель @everyone.</td>
+</tr>
+<tr>
+<td align="center" valign="top"><b>Отсчёт перед отправкой</b><br><a href="docs/screenshots/countdown.jpg"><img src="docs/screenshots/countdown.jpg" width="300" alt="Таймер Stream Notify с активными каналами и кнопкой отмены"></a><br>Обратный отсчёт и отмена текущего анонса.</td>
+<td align="center" valign="top"><b>Результат отправки</b><br><a href="docs/screenshots/result.jpg"><img src="docs/screenshots/result.jpg" width="300" alt="Демонстрационный экран результата доставки Telegram и Discord"></a><br>Отдельный результат доставки для каждого канала.</td>
+</tr>
+</table>
+
+[Все 27 снимков, включая донаты и разные размеры дока](https://github.com/DIMI0007/stream-notify/actions/runs/40081330317/artifacts/12555407207).
+
 ## Поддержать разработку
 
 Если Stream Notify помогает вашим трансляциям, поддержать разработку можно добровольным донатом:
