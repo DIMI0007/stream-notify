@@ -4,7 +4,7 @@
 
 Нативный плагин для **OBS Studio 33.0.0 x64**: анонсы трансляций и уведомления о донатах с сервисов **DonationAlerts** и **DonatePay** с отправкой в **Telegram и Discord**. Работает внутри OBS, включая сетевые выходы **Aitum Multistream**.
 
-[**Скачать тестовую DLL для Windows**](https://github.com/DIMI0007/stream-notify/actions/runs/40090087829/artifacts/12558344213) ·
+[**Скачать тестовую DLL для Windows**](https://github.com/DIMI0007/stream-notify/actions/runs/40124803403/artifacts/12572751002) ·
 [Установить или обновить](docs/TEST_WINDOWS_RU.md) ·
 [Все сборки](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml)
 
@@ -15,6 +15,7 @@
 - **Есть время передумать.** Выберите задержку 60, 90 или 120 секунд. До отправки текущий анонс можно отменить. На последних 10 секундах часы и цифры плавно пульсируют.
 - **Вы управляете рассылкой.** Включайте Telegram и Discord независимо. В Discord можно отдельно разрешить @everyone — тег появится в конце сообщения; по умолчанию упоминание выключено.
 - **Донаты напоминают об эфире.** Сообщение о поддержке становится повторным анонсом: показывает активность на стриме и приглашает зрителей присоединиться. Вы выбираете минимальную сумму, текст и получателей.
+- **Понятно, какой поток проседает.** Twitch и YouTube показываются отдельно: фактический битрейт, переданные данные, сетевые потери и состояние. Красная отметка сохраняется до пяти минут после проблемы.
 - **Всё под рукой в OBS.** Компактный док, русский и английский интерфейс, ручные тесты, предпросмотр и результат доставки для каждого канала.
 
 ### Донат — повод снова пригласить зрителей
@@ -38,14 +39,26 @@
 В пустых карточках кнопки «Добавить» и «Настроить» открывают нужное поле настроек. Рядом с готовыми каналами зелёная точка ненадолго приглушается раз в четыре секунды, без анимации самого текста.
 «Готов» означает, что данные подключения заполнены; кнопка «Тест» проверяет реальную доставку.
 
+### Потоки и ресурсы на главной
+
+Под «Последней отправкой» находятся независимые карточки выходов OBS/Aitum и небольшой блок ресурсов Stream Notify. Показатели обновляются раз в две секунды; настройки продолжают сохраняться автоматически, а внизу остаётся только авторская подпись.
+
+**CPU кода** измеряет отмеченные синхронные участки плагина. **Учтённая память** показывает вместимость учитываемых живых строк и буферов. **Сеть плагина** относится к данным HTTP/WebSocket уведомлений и отделена от трафика трансляции. Это не счётчики общей нагрузки OBS и не полная RAM DLL/Qt.
+
+[Правила просадок, состав измерений и их границы](docs/MONITORING_RU.md).
+
 ## Как выглядит
 
 Нажмите на изображение, чтобы открыть полный размер.
 
 <table>
 <tr>
-<td align="center" valign="top"><b>Основная панель</b><br><a href="docs/screenshots/home.jpg"><img src="docs/screenshots/home.jpg" width="300" alt="Основная панель — Stream Notify"></a><br>Статус эфира, ссылки и готовность каналов.</td>
-<td align="center" valign="top"><b>Перед отправкой</b><br><a href="docs/screenshots/countdown.jpg"><img src="docs/screenshots/countdown.jpg" width="300" alt="Перед отправкой — Stream Notify"></a><br>Обратный отсчёт и отмена текущего анонса.</td>
+<td align="center" valign="top"><b>Главная: верх панели</b><br><a href="docs/screenshots/home.png"><img src="docs/screenshots/home.png" width="300" alt="Основная панель — Stream Notify"></a><br>Главная страница с мониторингом выходов.</td>
+<td align="center" valign="top"><b>Перед отправкой</b><br><a href="docs/screenshots/countdown.png"><img src="docs/screenshots/countdown.png" width="300" alt="Перед отправкой — Stream Notify"></a><br>Обратный отсчёт и отмена текущего анонса.</td>
+</tr>
+<tr>
+<td align="center" valign="top"><b>Потоки и ресурсы</b><br><a href="docs/screenshots/monitoring.png"><img src="docs/screenshots/monitoring.png" width="300" alt="Независимые показатели YouTube и Twitch, ресурсы плагина"></a><br>YouTube стабилен, Twitch проседает; учёт ресурсов плагина расположен ниже.</td>
+<td align="center" valign="top"><b>Что означают показатели</b><br>Каждый выход имеет собственные счётчики и историю последней проблемы. Красная индикация сохраняется до пяти минут после восстановления.<br><a href="docs/MONITORING_RU.md">Описание мониторинга</a></td>
 </tr>
 </table>
 
@@ -54,11 +67,11 @@
 
 <table>
 <tr>
-<td align="center" valign="top"><b>Telegram и Discord</b><br><a href="docs/screenshots/connections.jpg"><img src="docs/screenshots/connections.jpg" width="300" alt="Telegram и Discord — Stream Notify"></a><br>Подключения, ручные тесты и переключатель @everyone.</td>
-<td align="center" valign="top"><b>Текст анонса</b><br><a href="docs/screenshots/message.jpg"><img src="docs/screenshots/message.jpg" width="300" alt="Текст анонса — Stream Notify"></a><br>Редактор сообщения, задержка и предпросмотр.</td>
+<td align="center" valign="top"><b>Telegram и Discord</b><br><a href="docs/screenshots/connections.png"><img src="docs/screenshots/connections.png" width="300" alt="Telegram и Discord — Stream Notify"></a><br>Подключения, ручные тесты и переключатель @everyone.</td>
+<td align="center" valign="top"><b>Текст анонса</b><br><a href="docs/screenshots/message.png"><img src="docs/screenshots/message.png" width="300" alt="Текст анонса — Stream Notify"></a><br>Редактор сообщения, задержка и предпросмотр.</td>
 </tr>
 <tr>
-<td align="center" valign="top"><b>Результат доставки</b><br><a href="docs/screenshots/result.jpg"><img src="docs/screenshots/result.jpg" width="300" alt="Результат доставки — Stream Notify"></a><br>Отдельный статус каждого канала и возврат к основной панели.</td>
+<td align="center" valign="top"><b>Результат доставки</b><br><a href="docs/screenshots/result.png"><img src="docs/screenshots/result.png" width="300" alt="Результат доставки — Stream Notify"></a><br>Отдельный статус каждого канала и возврат к основной панели.</td>
 </tr>
 </table>
 
@@ -73,20 +86,20 @@
 
 <table>
 <tr>
-<td align="center" valign="top"><b>Сервисы</b><br><a href="docs/screenshots/donations-services.jpg"><img src="docs/screenshots/donations-services.jpg" width="300" alt="Сервисы — Stream Notify"></a><br>DonationAlerts и DonatePay, ключи и проверка подключения.</td>
-<td align="center" valign="top"><b>Отправка</b><br><a href="docs/screenshots/donations-delivery.jpg"><img src="docs/screenshots/donations-delivery.jpg" width="300" alt="Отправка — Stream Notify"></a><br>Кому отправлять и учитывать ли только активный эфир.</td>
+<td align="center" valign="top"><b>Сервисы</b><br><a href="docs/screenshots/donations-services.png"><img src="docs/screenshots/donations-services.png" width="300" alt="Сервисы — Stream Notify"></a><br>DonationAlerts и DonatePay, ключи и проверка подключения.</td>
+<td align="center" valign="top"><b>Отправка</b><br><a href="docs/screenshots/donations-delivery.png"><img src="docs/screenshots/donations-delivery.png" width="300" alt="Отправка — Stream Notify"></a><br>Кому отправлять и учитывать ли только активный эфир.</td>
 </tr>
 <tr>
-<td align="center" valign="top"><b>Суммы</b><br><a href="docs/screenshots/donations-amounts.jpg"><img src="docs/screenshots/donations-amounts.jpg" width="300" alt="Суммы — Stream Notify"></a><br>Три рублёвых порога и справочник курсов.</td>
-<td align="center" valign="top"><b>Текст</b><br><a href="docs/screenshots/donations-text.jpg"><img src="docs/screenshots/donations-text.jpg" width="300" alt="Текст — Stream Notify"></a><br>Шаблоны, предпросмотр, ручной тест и журнал.</td>
+<td align="center" valign="top"><b>Суммы</b><br><a href="docs/screenshots/donations-amounts.png"><img src="docs/screenshots/donations-amounts.png" width="300" alt="Суммы — Stream Notify"></a><br>Три рублёвых порога и справочник курсов.</td>
+<td align="center" valign="top"><b>Текст</b><br><a href="docs/screenshots/donations-text.png"><img src="docs/screenshots/donations-text.png" width="300" alt="Текст — Stream Notify"></a><br>Шаблоны, предпросмотр, ручной тест и журнал.</td>
 </tr>
 </table>
 
 </details>
 
-Снимки получены из реального Qt-кода в тестовом окне, без настоящих ключей и webhook.
+Все снимки обновлены из реально запущенного Qt-интерфейса этой сборки. В окне используются тестовые выходы и демонстрационные адреса, без настоящих ключей и webhook. Показатели YouTube/Twitch на снимках моделируются для демонстрации независимых состояний; значения ресурсов измерены в тестовом окне и не являются оценкой нагрузки на вашем ПК.
 Экран успешной доставки показан на демонстрационных данных.
-[Полный набор снимков для разных размеров дока](https://github.com/DIMI0007/stream-notify/actions/runs/40090087829/artifacts/12558672578).
+[Полный набор снимков для разных размеров дока](https://github.com/DIMI0007/stream-notify/actions/runs/40124803403/artifacts/12572661100).
 
 
 <details>
@@ -94,7 +107,7 @@
 
 Кнопки в пустых карточках ведут сразу к нужному полю, включая прокрутку к ссылке на эфир.
 
-<a href="docs/screenshots/home-setup.jpg"><img src="docs/screenshots/home-setup.jpg" width="300" alt="Первый запуск Stream Notify: добавить ссылки и настроить получателей"></a>
+<a href="docs/screenshots/home-setup.png"><img src="docs/screenshots/home-setup.png" width="300" alt="Первый запуск Stream Notify: добавить ссылки и настроить получателей"></a>
 
 </details>
 
@@ -133,9 +146,10 @@
 
 - [Установка, обновление и тестирование](docs/TEST_WINDOWS_RU.md)
 - [Модуль донатов и ограничения интеграций](README_DONATIONS_RU.md)
+- [Потоки OBS/Aitum и ресурсы плагина](docs/MONITORING_RU.md)
 - [Рублёвые пороги и файл курсов](docs/CURRENCY_RU.md)
 - [Что проверено](tests/VALIDATION.txt)
-- [Журнал актуальной сборки](https://github.com/DIMI0007/stream-notify/actions/runs/40090087829)
+- [Журнал актуальной сборки](https://github.com/DIMI0007/stream-notify/actions/runs/40124803403)
 - [Архив исходного ТЗ](docs/Stream_Notify_1_0_TZ.md)
 
 CI проверяет сборку, логику валют, Telegram-ссылки, Discord @everyone, навигацию, сохранность значений и неизменность размера окна при переключении донатных вкладок.
@@ -150,4 +164,4 @@ CI проверяет сборку, логику валют, Telegram-ссылк
 
 Спасибо за поддержку!
 
-Developed by [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/).
+developed by [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/).

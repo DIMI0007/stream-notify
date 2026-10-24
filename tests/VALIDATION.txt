@@ -20,3 +20,10 @@ DonatePay remains experimental. Modeled output tests are not a complete real Ait
 The latest successful GitHub Actions run and its logs are authoritative for each code revision.
 Runtime UI screenshots are generated from the real Qt source using isolated host stubs.
 No real bot token, webhook or donor-service credential is used in CI.
+
+PASS: independent output bitrate/loss/reconnect/counter-reset histories, five-minute recovery indication and session restart tests.
+PASS: per-thread CPU scopes exclude uninstrumented work; nested scopes avoid double counting.
+PASS: deduplicated retained string/byte-buffer capacity; HTTP payload byte accounting against a local fixture server.
+PASS: actual Qt Home monitoring cards, no telemetry on Settings, and removal of all autosave footer labels across viewport previews.
+LIMIT: monitor CPU covers instrumented synchronous code, not all shared Qt/OS background work; buffer totals are not complete DLL RAM.
+LIMIT: output counters/naming across actual Aitum versions require an OBS runtime check. CI uses controlled outputs.
