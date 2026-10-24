@@ -6,6 +6,15 @@
 [Установка и обновление](docs/TEST_WINDOWS_RU.md) ·
 [Донаты](README_DONATIONS_RU.md) · [Валюты](docs/CURRENCY_RU.md)
 
+## Поддержать разработку
+
+Если Stream Notify помогает вашим трансляциям, поддержать разработку можно добровольным донатом:
+
+- [Поддержать через DonationAlerts](https://www.donationalerts.com/r/otmopozok)
+- [Поддержать через DonatePay](https://donatepay.ru/don/OTMOPOZOK)
+
+Спасибо за поддержку проекта!
+
 ## Возможности
 
 - Один анонс после начала эфира; задержка 60, 90 или 120 секунд, отмена текущей рассылки.
