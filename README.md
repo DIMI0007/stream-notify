@@ -23,7 +23,7 @@
 </tr>
 </table>
 
-[Все 27 снимков, включая донаты и разные размеры дока](https://github.com/DIMI0007/stream-notify/actions/runs/40081330317/artifacts/12555407207).
+[Все 27 снимков, включая донаты и разные размеры дока](https://github.com/DIMI0007/stream-notify/actions/runs/40083456942/artifacts/12556790012).
 
 ## Поддержать разработку
 
@@ -82,9 +82,9 @@ Developed by [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfy
 
 ## Актуальная тестовая сборка
 
-[Скачать ZIP для OBS 33](https://github.com/DIMI0007/stream-notify/actions/runs/40081330317/artifacts/12555900195) ·
-[27 снимков интерфейса](https://github.com/DIMI0007/stream-notify/actions/runs/40081330317/artifacts/12555407207) ·
-[Журнал сборки](https://github.com/DIMI0007/stream-notify/actions/runs/40081330317)
+[Скачать ZIP для OBS 33](https://github.com/DIMI0007/stream-notify/actions/runs/40083456942/artifacts/12556172923) ·
+[27 снимков интерфейса](https://github.com/DIMI0007/stream-notify/actions/runs/40083456942/artifacts/12556790012) ·
+[Журнал сборки](https://github.com/DIMI0007/stream-notify/actions/runs/40083456942)
 
 В этой версии: переключатель @everyone, рисованные значки навигации, новый индикатор активности,
 компактные строки ссылок, адаптивный таймер и отдельная карточка результата с возвратом на основную.
