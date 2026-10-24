@@ -1,4 +1,5 @@
 #include "dock.hpp"
+#include "stream_activity.hpp"
 #include "ui_widgets.hpp"
 #include "telegram_channel.hpp"
 #include <obs.h>
@@ -197,10 +198,14 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
             donationJournalLabel_->setText(entries.isEmpty()?uiText("Пока нет донатов","No donations yet"):entries.mid(0,6).join("\n"));
         }
     });
-    broadcasting_ = obs_frontend_streaming_active();
+    broadcasting_ = anyStreamingOutputActive();
     donation_.setLive(broadcasting_);
     donation_.configure();
     if (broadcasting_) alreadyHandled_ = true; // No retrospective notifications.
+    // Plugin outputs can be created after frontend initialization.
+    streamStateTimer_.setInterval(1000);
+    connect(&streamStateTimer_,&QTimer::timeout,this,&StreamDock::refreshStreamingState);
+    streamStateTimer_.start();
     rebuild();
 }
 StreamDock::~StreamDock() { shutdown(); }
@@ -1009,12 +1014,20 @@ void StreamDock::updateCountdown()
     }
 }
 
+void StreamDock::refreshStreamingState()
+{
+    if(shuttingDown_)return;
+    const bool live=anyStreamingOutputActive();
+    if(live==broadcasting_)return;
+    if(live)streamStarted();else streamStopped();
+}
+
 void StreamDock::streamStarted()
 {
     if (shuttingDown_) return;
     broadcasting_ = true;
     donation_.setLive(true);
-    // STREAMING_STARTED is the only trigger, never scene changes or reconnect callbacks.
+    // One notification session spans all concurrently active streaming outputs.
     if(alreadyHandled_) {rebuild();return;}
     alreadyHandled_ = true;
     resultTimer_.stop();
@@ -1077,7 +1090,7 @@ void StreamDock::streamStopped()
 void StreamDock::dispatch()
 {
     if (phase_ != Phase::Counting) return;
-    if (!obs_frontend_streaming_active() || !broadcasting_) {cancelCurrent("Stream inactive");return;}
+    if (!anyStreamingOutputActive() || !broadcasting_) {cancelCurrent("Stream inactive");return;}
     if (telegram_.status == Outcome::Waiting && !validTelegram(session_.token,session_.chat))
         telegram_ = {Outcome::NotConfigured,"Check BotFather token and Chat ID",0};
     if (discord_.status == Outcome::Waiting && !validDiscord(session_.webhook))
@@ -1151,6 +1164,7 @@ void StreamDock::shutdown()
     if(shuttingDown_) return;
     shuttingDown_ = true;
     countdown_.stop();
+    streamStateTimer_.stop();
     resultTimer_.stop();
     ++generation_;
     sender_.abortAll();

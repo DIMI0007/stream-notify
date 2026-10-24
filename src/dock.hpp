@@ -19,6 +19,7 @@ class StreamDock : public QWidget {
 public:
     explicit StreamDock(QWidget* parent = nullptr);
     ~StreamDock() override;
+    void refreshStreamingState();
     void streamStarted();
     void streamStopped();
     void shutdown();
@@ -39,6 +40,7 @@ private:
     quint64 generation_ = 0;
     QElapsedTimer elapsed_;
     QTimer countdown_;
+    QTimer streamStateTimer_;
     QTimer resultTimer_;
     Snapshot session_;
     Delivery telegram_;

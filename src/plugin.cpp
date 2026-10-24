@@ -59,11 +59,11 @@ void onFrontend(enum obs_frontend_event event, void*)
     switch(event) {
         case OBS_FRONTEND_EVENT_FINISHED_LOADING: installDock(); break;
         case OBS_FRONTEND_EVENT_STREAMING_STARTED:
-            if(g_panel) g_panel->streamStarted();
+            if(g_panel) g_panel->refreshStreamingState();
             break;
         case OBS_FRONTEND_EVENT_STREAMING_STOPPING:
         case OBS_FRONTEND_EVENT_STREAMING_STOPPED:
-            if(g_panel) g_panel->streamStopped();
+            if(g_panel) g_panel->refreshStreamingState();
             break;
         case OBS_FRONTEND_EVENT_EXIT:
             g_exiting = true;

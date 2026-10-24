@@ -7,9 +7,23 @@
 #include <QByteArray>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 // Isolate the real Qt dock from OBS host globals during UI smoke testing.
 inline const char* streamPreviewLocale(){return "ru-RU";}
-inline bool streamPreviewLive(){return false;}
+inline bool streamPreviewBuiltinLive=false;
+struct StreamPreviewOutput {bool network;bool active;};
+inline std::vector<StreamPreviewOutput> streamPreviewOutputs;
+inline bool streamPreviewLive(){return streamPreviewBuiltinLive;}
+inline void streamPreviewEnum(bool (*callback)(void*,obs_output_t*),void* context) {
+    for(auto& output:streamPreviewOutputs)
+        if(!callback(context,reinterpret_cast<obs_output_t*>(&output)))break;
+}
+inline uint32_t streamPreviewFlags(const obs_output_t* output) {
+    return reinterpret_cast<const StreamPreviewOutput*>(output)->network?OBS_OUTPUT_SERVICE:0;
+}
+inline bool streamPreviewActive(const obs_output_t* output) {
+    return reinterpret_cast<const StreamPreviewOutput*>(output)->active;
+}
 inline char* streamPreviewConfig(const char* name) {
     const QString root=qEnvironmentVariable("STREAM_NOTIFY_PREVIEW_DIR",QDir::tempPath()+"/stream-notify-ui-preview");
     QDir().mkpath(root);
@@ -24,3 +38,7 @@ inline void streamPreviewFree(void* pointer){std::free(pointer);}
 #undef obs_module_config_path
 #define obs_module_config_path(name) streamPreviewConfig(name)
 #define bfree streamPreviewFree
+
+#define obs_enum_outputs streamPreviewEnum
+#define obs_output_get_flags streamPreviewFlags
+#define obs_output_active streamPreviewActive

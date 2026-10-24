@@ -9,6 +9,8 @@
 #include <QScrollBar>
 #include <iostream>
 struct DockPreview {
+    static bool live(const StreamDock& panel){return panel.broadcasting_;}
+    static quint64 session(const StreamDock& panel){return panel.generation_;}
     static void countdown(StreamDock& panel) {
         panel.session_.delay=60;panel.session_.resultSeconds=45;
         panel.session_.telegram=true;panel.session_.discord=true;
@@ -53,6 +55,24 @@ int main(int argc,char** argv) {
     if(!save("07-donations-bottom"))return 1;
     DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
     DockPreview::result(panel);if(!save("09-result"))return 1;
+    streamPreviewOutputs={{false,true}}; // Recording must not announce.
+    panel.refreshStreamingState();pump();if(DockPreview::live(panel))return 2;
+    const auto before=DockPreview::session(panel);
+    streamPreviewOutputs.push_back({true,true}); // First Aitum destination.
+    panel.refreshStreamingState();pump();
+    if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+1)return 3;
+    streamPreviewOutputs.push_back({true,true}); // Second Aitum destination.
+    panel.refreshStreamingState();pump();
+    if(DockPreview::session(panel)!=before+1)return 4;
+    streamPreviewOutputs[1].active=false;
+    panel.refreshStreamingState();pump();if(!DockPreview::live(panel))return 5;
+    streamPreviewOutputs[2].active=false;
+    panel.refreshStreamingState();pump();if(DockPreview::live(panel))return 6;
+    streamPreviewOutputs[1].active=true;
+    panel.refreshStreamingState();pump();
+    if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+2)return 7;
+    streamPreviewOutputs.clear();panel.refreshStreamingState();pump();
+    std::cout<<"Multistream aggregate start, deduplication, last-stop and restart tests passed\\n";
     panel.shutdown();
     std::cout<<"Dock navigation, language and compact-mode smoke tests passed\n";
 }
