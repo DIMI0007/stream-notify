@@ -186,7 +186,7 @@ void StreamDock::rebuild()
         root_->addWidget(saveLabel_);
     }
     auto* author = new QLabel(QStringLiteral("Developed by ") +
-        "<a href=\"https://www.youtube.com/@OTMOPOZOK\"><span style=\"color:#59dfff;\">OTMOPOZOK</span></a>");
+        "<a href=\"https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/\"><span style=\"color:#59dfff;\">OTMOPOZOK</span></a>");
     author->setTextFormat(Qt::RichText);
     author->setOpenExternalLinks(true);
     author->setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard);
