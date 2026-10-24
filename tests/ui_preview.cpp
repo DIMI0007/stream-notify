@@ -11,10 +11,41 @@
 #include <QTextEdit>
 #include <QLabel>
 #include <QPixmap>
+#include <QLineEdit>
 #include <iostream>
 struct DockPreview {
     static bool live(const StreamDock& panel){return panel.broadcasting_;}
     static quint64 session(const StreamDock& panel){return panel.generation_;}
+    static Settings demoConnections(StreamDock& panel) {
+        const Settings original=panel.store_.current;
+        auto& s=panel.store_.current;
+        s.telegramEnabled=true;s.discordEnabled=true;
+        s.telegramToken="0:PREVIEW_ONLY_NOT_A_REAL_TOKEN";
+        s.telegramChat="@preview_channel";
+        s.discordWebhook="https://discord.com/api/webhooks/0/PREVIEW_ONLY_NOT_A_REAL_WEBHOOK";
+        s.youtubeUrl="https://www.youtube.com/@example/live";
+        s.twitchUrl="https://www.twitch.tv/example";
+        panel.page_=StreamDock::Page::Home;panel.phase_=StreamDock::Phase::Idle;
+        panel.rebuild();return original;
+    }
+    static void restoreSettings(StreamDock& panel,const Settings& settings) {
+        panel.store_.current=settings;panel.rebuild();
+    }
+    static bool donationIdleStates(StreamDock& panel) {
+        const auto original=panel.store_.current.donations;
+        auto& s=panel.store_.current.donations;
+        s.enabled=true;s.daEnabled=true;s.dpEnabled=true;s.onlyLive=true;s.legacyApiOptIn=true;
+        s.daToken.clear();s.dpToken.clear();
+        panel.donation_.setLive(false);panel.donation_.configure();
+        const bool missing=panel.donation_.daStatus()=="Not configured" && panel.donation_.dpStatus()=="Not configured";
+        // onlyLive blocks external service connections; these are dummy values.
+        s.daToken="PREVIEW_ONLY";s.dpToken="PREVIEW_ONLY";panel.donation_.configure();
+        const bool waiting=panel.donation_.daStatus()=="Waiting for stream" && panel.donation_.dpStatus()=="Waiting for stream";
+        s.enabled=false;panel.donation_.configure();
+        const bool disabled=panel.donation_.daStatus()=="Module disabled" && panel.donation_.dpStatus()=="Module disabled";
+        panel.store_.current.donations=original;panel.donation_.configure();
+        return missing && waiting && disabled;
+    }
     static void countdown(StreamDock& panel,int seconds=60) {
         panel.session_.delay=seconds;panel.session_.resultSeconds=45;
         panel.session_.telegram=true;panel.session_.discord=true;
@@ -49,7 +80,18 @@ int main(int argc,char** argv) {
         std::cerr<<"Missing UI navigation control\n";return false;
     };
     auto save=[&](const QString& name){pump();return panel.grab().save(output+"/"+name+".png");};
-    if(!save("01-home") || !click(QString::fromUtf8("Настройки")) || !save("02-connections"))return 1;
+    if(!save("01-home"))return 1;
+    // Empty-state actions should open and reveal the correct settings field.
+    if(!click(QString::fromUtf8("Добавить")))return 28;
+    auto* urlField=panel.findChild<QLineEdit*>("YouTubeUrl");
+    if(!urlField)return 29;
+    bool revealed=false;
+    for(auto* scroll:panel.findChildren<QScrollArea*>())
+        if(scroll->widget() && scroll->widget()->isAncestorOf(urlField))
+            revealed=scroll->viewport()->rect().contains(urlField->mapTo(scroll->viewport(),urlField->rect().center()));
+    if(!revealed)return 30;
+    if(!click(QString::fromUtf8("Основное")) || !click(QString::fromUtf8("Настроить")) || !save("02-connections"))return 31;
+    if(!panel.findChild<QLineEdit*>("TelegramToken"))return 32;
     if(!click(QString::fromUtf8("Сообщение")) || !save("03-message"))return 1;
     if(!click(QString::fromUtf8("Интерфейс")) || !click(QString("English")))return 1;
     if(!click(QString::fromUtf8("Русский")) || !save("04-interface"))return 1;
@@ -97,6 +139,19 @@ int main(int argc,char** argv) {
     std::cout<<"Donation subtabs: stable dock size, edited amounts and template persistence passed\\n";
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
     if(!save("07-donations-bottom"))return 1;
+    if(!DockPreview::donationIdleStates(panel))return 33;
+    const Settings originalSettings=DockPreview::demoConnections(panel);pump();
+    QList<QPointer<QTimer>> readyTimers;
+    for(auto* timer:panel.findChildren<QTimer*>())
+        if(timer->objectName()=="ReadyBlinkTimer")readyTimers.append(timer);
+    if(readyTimers.size()!=2)return 34;
+    for(const auto& timer:readyTimers)if(!timer || !timer->isActive())return 35;
+    if(!save("15-home-ready"))return 1;
+    panel.hide();pump();for(const auto& timer:readyTimers)if(timer->isActive())return 36;
+    panel.show();pump();for(const auto& timer:readyTimers)if(!timer->isActive())return 37;
+    DockPreview::restoreSettings(panel,originalSettings);pump();
+    for(const auto& timer:readyTimers)if(timer)return 38;
+    std::cout<<"Setup links, donation idle reasons and visible-only ready indicators passed\\n";
     DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
     QPointer<QTimer> pulse=panel.findChild<QTimer*>("CountdownPulseTimer");
     if(!pulse || pulse->isActive())return 22; // No animation outside the final ten seconds.

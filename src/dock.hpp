@@ -50,6 +50,7 @@ private:
     Delivery discord_;
     int activePending_ = 0;
     QString statusText_;
+    QString pendingFocus_;
     QString transientTelegram_;
     QString transientDiscord_;
     bool testingTelegram_ = false;
@@ -84,6 +85,7 @@ private:
     QLabel* label(const QString& text, const QString& name = QString());
     void section(QVBoxLayout* layout, const QString& text);
     void showPage(Page page);
+    void openConnections(const QString& field);
     void showPhase(Phase phase);
     void updateCountdown();
     void cancelCurrent(const QString& reason);

@@ -235,14 +235,18 @@ void DonationEngine::configure() {
         daSignature_=newDA;daRetry_.stop();
         resettingSocket_=true;websocket_.abort();resettingSocket_=false;
         ++daEpoch_;daBackoff_=0;
-        if(newDA.isEmpty())state(daStatus_,!s.enabled||!s.daEnabled?"Disabled":s.onlyLive&&!live_?"Waiting for stream":"Not configured");
-        else daConnect();
+        if(!newDA.isEmpty())daConnect();
     }
     if(newDP!=dpSignature_) {
         dpSignature_=newDP;dpTimer_.stop();++dpEpoch_;dpBackoff_=0;dpPrimed_=false;dpBaseline_.clear();
-        if(newDP.isEmpty())state(dpStatus_,!s.enabled||!s.dpEnabled?"Disabled":s.onlyLive&&!live_?"Waiting for stream":"API verification required");
-        else dpPoll();
+        if(!newDP.isEmpty())dpPoll();
     }
+    // Inactive signatures may stay empty across setting changes. Refresh their
+    // reason every time, even when no connection must be restarted.
+    if(newDA.isEmpty())state(daStatus_,!s.enabled?"Module disabled":!s.daEnabled?"Disabled":
+        s.daToken.isEmpty()?"Not configured":"Waiting for stream");
+    if(newDP.isEmpty())state(dpStatus_,!s.enabled?"Module disabled":!s.dpEnabled?"Disabled":
+        s.dpToken.isEmpty()?"Not configured":!s.legacyApiOptIn?"API verification required":"Waiting for stream");
 }
 void DonationEngine::daConnect() {
     if(daSignature_.isEmpty()||closing_)return;

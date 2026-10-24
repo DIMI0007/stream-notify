@@ -33,6 +33,7 @@
 #include <QMap>
 #include <QProgressBar>
 #include <QTextBrowser>
+#include <QToolTip>
 #include <cmath>
 #include <algorithm>
 
@@ -79,7 +80,8 @@ QLineEdit:focus,QTextEdit:focus,QComboBox:focus,QDoubleSpinBox:focus {border-col
 QString serviceStatus(const QString& value,bool russian) {
     if(!russian)return value;
     static const QMap<QString,QString> names={
-        {"Disabled",QString::fromUtf8("Отключён")},
+        {"Disabled",QString::fromUtf8("Сервис выключен")},
+        {"Module disabled",QString::fromUtf8("Модуль выключен")},
         {"Connecting",QString::fromUtf8("Подключение…")},
         {"Connected",QString::fromUtf8("Подключён")},
         {"Reconnecting",QString::fromUtf8("Переподключение…")},
@@ -255,6 +257,9 @@ QWidget* StreamDock::card(QVBoxLayout** l)
 }
 void StreamDock::changeSettings() { store_.scheduleSave(); donationConfigure_.start(); }
 void StreamDock::showPage(Page page) { page_ = page; rebuild(); }
+void StreamDock::openConnections(const QString& field) {
+    pendingFocus_=field;showPage(Page::Connections);
+}
 void StreamDock::showPhase(Phase phase) { phase_ = phase; rebuild(); }
 void StreamDock::updateSaved(bool success)
 {
@@ -330,6 +335,17 @@ void StreamDock::rebuildNow()
         root_->addWidget(saveLabel_);
     }
     root_->addWidget(new CreditFooter(this));
+    if(!pendingFocus_.isEmpty()) {
+        QPointer<QLineEdit> field=findChild<QLineEdit*>(pendingFocus_);
+        pendingFocus_.clear();
+        QTimer::singleShot(0,this,[this,field] {
+            if(!field)return;
+            field->setFocus(Qt::OtherFocusReason);
+            for(auto* scroll:findChildren<QScrollArea*>())
+                if(scroll->widget() && scroll->widget()->isAncestorOf(field))
+                    scroll->ensureWidgetVisible(field,0,12);
+        });
+    }
 }
 
 QWidget* StreamDock::buildRegular()
@@ -453,14 +469,27 @@ QWidget* StreamDock::buildHome()
         h->addWidget(new ServiceBadge(tg ? "Telegram" : "Discord"));
         auto* details=new QVBoxLayout;details->setSpacing(2);
         details->addWidget(label(tg ? "Telegram" : "Discord","Section"));
-        QString st = ! (tg ? store_.current.telegramEnabled : store_.current.discordEnabled) ? uiText("Отключён", "Disabled") :
-            (tg ? validTelegram(store_.current.telegramToken, store_.current.telegramChat) : validDiscord(store_.current.discordWebhook)) ?
-                uiText("● Готов", "● Ready") : uiText("⚠ Не настроен", "⚠ Not configured");
-        details->addWidget(label(st,"Hint"));
+        const bool configured=tg?validTelegram(store_.current.telegramToken,store_.current.telegramChat):validDiscord(store_.current.discordWebhook);
+        const bool enabled=tg?store_.current.telegramEnabled:store_.current.discordEnabled;
+        const bool testing=tg?testingTelegram_:testingDiscord_;
+        if(enabled && configured && !testing) {
+            auto* ready=new ReadyStatus(uiText("Готов","Ready"));
+            ready->setToolTip(uiText("Данные заполнены. Кнопка «Тест» проверяет доставку.",
+                "Connection details are set. Use Test to verify delivery."));
+            details->addWidget(ready);
+        } else {
+            details->addWidget(label(testing?uiText("Проверяем…","Testing…"):
+                !configured?uiText("Не настроен","Not configured"):uiText("Выключен","Disabled"),"Hint"));
+        }
         h->addLayout(details,1);
-        auto* test = btn(uiText("Тест", "Test"));
-        test->setEnabled(!(tg ? testingTelegram_ : testingDiscord_));
-        connect(test, &QPushButton::clicked, this, [this,c] {testChannel(c);});
+        auto* test = btn(configured?uiText("Тест", "Test"):uiText("Настроить","Set up"));
+        test->setEnabled(!testing);
+        test->setToolTip(configured?uiText("Отправить тестовое сообщение","Send a test message"):
+            uiText("Открыть настройки подключения","Open connection settings"));
+        connect(test,&QPushButton::clicked,this,[this,c,tg,configured] {
+            if(configured)testChannel(c);
+            else openConnections(tg?"TelegramToken":"DiscordWebhook");
+        });
         h->addWidget(test);
         v->addLayout(h);
         QString temp = tg ? transientTelegram_ : transientDiscord_;
@@ -477,8 +506,14 @@ QWidget* StreamDock::buildHome()
         textColumn->addWidget(label(name,"Section"));
         textColumn->addWidget(new LinkCaption(value.isEmpty()?uiText("Добавьте ссылку в настройках","Add a link in Settings"):value));
         row->addLayout(textColumn,1);
-        auto* copy=btn(uiText("Копировать","Copy"));copy->setEnabled(!value.isEmpty());
-        connect(copy,&QPushButton::clicked,this,[value]{QApplication::clipboard()->setText(value);});
+        auto* copy=btn(value.isEmpty()?uiText("Добавить","Add"):uiText("Копировать","Copy"));
+        copy->setToolTip(value.isEmpty()?uiText("Добавить ссылку на эфир","Add your stream link"):
+            uiText("Скопировать ссылку ","Copy link: ")+name);
+        connect(copy,&QPushButton::clicked,this,[this,copy,name,value] {
+            if(value.isEmpty()) {openConnections(name=="YouTube"?"YouTubeUrl":"TwitchUrl");return;}
+            QApplication::clipboard()->setText(value);
+            QToolTip::showText(copy->mapToGlobal(copy->rect().bottomLeft()),uiText("Ссылка скопирована","Link copied"),copy,QRect(),1200);
+        });
         row->addWidget(copy);v->addLayout(row);
     };
     linkRow("YouTube", store_.current.youtubeUrl); linkRow("Twitch", store_.current.twitchUrl);
@@ -501,7 +536,7 @@ QWidget* StreamDock::buildConnections()
     auto* outer = column(body, 11, 3);
     QVBoxLayout* v;
     auto* global = card(&v);
-    auto* all = new StreamSwitch(uiText("Автоуведомления включены", "Automatic notifications enabled"));
+    auto* all = new StreamSwitch(uiText("Анонсировать начало стрима", "Announce stream start"));
     all->setChecked(store_.current.enabled);
     connect(all, &QCheckBox::toggled, this, [this](bool enabled) {store_.current.enabled=enabled;changeSettings();});
     v->addWidget(all);
@@ -515,6 +550,7 @@ QWidget* StreamDock::buildConnections()
     v->addWidget(tg);
     v->addWidget(label(uiText("1. Токен из @BotFather", "1. Token from @BotFather"), "Hint"));
     auto* token = new QLineEdit(store_.current.telegramToken);
+    token->setObjectName("TelegramToken");
     token->setEchoMode(QLineEdit::Password);
     token->setPlaceholderText("123456789:... (BotFather)");
     connect(token, &QLineEdit::textChanged, this, [this](const QString& s) {store_.current.telegramToken=s;changeSettings();});
@@ -529,6 +565,8 @@ QWidget* StreamDock::buildConnections()
     connect(chat, &QLineEdit::textChanged, this, [this](const QString& s){store_.current.telegramChat=telegramChannel(s);changeSettings();});
     v->addWidget(chat);
     auto* channelHint=label(QString(),"Hint");
+    channelHint->setToolTip(uiText("Укажите имя канала, а не личный ник или имя бота. Бот должен быть администратором с правом публикации.",
+        "Use the channel name, not a personal username or bot name. The bot must be an administrator allowed to post."));
     auto updateChannelHint=[this,channelHint](const QString& value) {
         const QString normalized=telegramChannel(value);
         const bool valid=QRegularExpression("^(?:-?[0-9]+|@[A-Za-z0-9_]{5,})$").match(normalized).hasMatch();
@@ -586,6 +624,7 @@ QWidget* StreamDock::buildConnections()
 
     v->addWidget(label("Webhook URL", "Hint"));
     auto* hook = new QLineEdit(store_.current.discordWebhook);
+    hook->setObjectName("DiscordWebhook");
     hook->setEchoMode(QLineEdit::Password);
     hook->setPlaceholderText("https://discord.com/api/webhooks/...");
     connect(hook, &QLineEdit::textChanged, this, [this](const QString& s){store_.current.discordWebhook=s;changeSettings();});
@@ -608,11 +647,13 @@ QWidget* StreamDock::buildConnections()
     section(v,uiText("Ссылки на трансляцию", "Stream links"));
     v->addWidget(label("YouTube", "Hint"));
     auto* yt = new QLineEdit(store_.current.youtubeUrl);
+    yt->setObjectName("YouTubeUrl");
     yt->setPlaceholderText("https://www.youtube.com/@channel/live");
     connect(yt, &QLineEdit::textChanged, this, [this](const QString& s) {store_.current.youtubeUrl=s;changeSettings();});
     v->addWidget(yt);
     v->addWidget(label("Twitch", "Hint"));
     auto* tw = new QLineEdit(store_.current.twitchUrl);
+    tw->setObjectName("TwitchUrl");
     tw->setPlaceholderText("https://www.twitch.tv/channel");
     connect(tw, &QLineEdit::textChanged, this, [this](const QString& s) {store_.current.twitchUrl=s;changeSettings();});
     v->addWidget(tw);
@@ -712,14 +753,38 @@ QWidget* StreamDock::buildDonations()
         statusLabel=label(serviceStatus(status,isRu()),"Hint");
         l->addWidget(statusLabel);
         auto* edit=new QLineEdit(token);edit->setEchoMode(QLineEdit::Password);
-        edit->setPlaceholderText(uiText("Вставьте токен сервиса","Paste service token"));
+        edit->setPlaceholderText(title=="DonatePay"
+            ?uiText("API-ключ DonatePay","DonatePay API key")
+            :uiText("OAuth-токен DonationAlerts","DonationAlerts OAuth token"));
+        edit->setAccessibleName(title=="DonatePay"?uiText("API-ключ DonatePay","DonatePay API key"):
+            uiText("OAuth-токен DonationAlerts","DonationAlerts OAuth token"));
         connect(edit,&QLineEdit::textChanged,this,[this,value=&token](const QString& text){*value=text;changeSettings();});
         auto* reveal=btn(uiText("Показать", "Show"));
         connect(reveal,&QPushButton::clicked,this,[edit]{edit->setEchoMode(edit->echoMode()==QLineEdit::Password?QLineEdit::Normal:QLineEdit::Password);});
         rowWith(l,edit,reveal);
         auto* verify=btn(uiText("Проверить подключение", "Check connection"));
-        connect(verify,&QPushButton::clicked,this,[test]{test();});
-        l->addWidget(verify);
+        connect(verify,&QPushButton::clicked,this,[this,title,test] {
+            const auto& settings=store_.current.donations;
+            const bool donatePay=title=="DonatePay";
+            QString reason;
+            if(!settings.enabled)reason=uiText("Включите модуль донатов вверху этой страницы.","Enable the donation module at the top of this page.");
+            else if(!(donatePay?settings.dpEnabled:settings.daEnabled))reason=uiText("Включите «Подключить сервис» в этой карточке.","Turn on Enable service in this card.");
+            else if((donatePay?settings.dpToken:settings.daToken).isEmpty())reason=uiText("Сначала введите ключ сервиса в поле этой карточки.","Enter the service key in this card first.");
+            else if(donatePay && !settings.legacyApiOptIn)reason=uiText("Разрешите экспериментальный API DonatePay внизу этой карточки.","Allow the experimental DonatePay API at the bottom of this card.");
+            else if(settings.onlyLive && !broadcasting_)reason=uiText(
+                "В разделе «Отправка» включено «Только во время стрима».\nНачните эфир в OBS/Aitum или выключите это ограничение для проверки.",
+                "Only while streaming is enabled under Delivery.\nGo live with OBS/Aitum or turn this restriction off to check the connection.");
+            if(!reason.isEmpty()) {QMessageBox::information(this,title,reason);return;}
+            test();
+        });
+        auto* help=btn("?");help->setFixedWidth(28);
+        help->setAccessibleName(uiText("Где взять ключ ","Where to get a key: ")+title);
+        help->setToolTip(help->accessibleName());
+        connect(help,&QPushButton::clicked,this,[title] {
+            QDesktopServices::openUrl(QUrl(title=="DonatePay"?"https://donatepay.ru/page/api":
+                "https://github.com/DIMI0007/stream-notify/blob/main/README_DONATIONS_RU.md#donationalerts"));
+        });
+        rowWith(l,verify,help);
         if(title=="DonatePay") {
             addToggle(l,uiText("Разрешить экспериментальный API","Allow experimental API"),s.legacyApiOptIn);
             auto* note=label(uiText("Экспериментально • опрос каждые 30 сек.","Experimental • polling every 30 sec."),"Hint");
@@ -920,11 +985,11 @@ QWidget* StreamDock::buildInterface()
     return body;
 }
 
-// Circular progress is repainted once per second only while counting.
+// Ring updates once per countdown tick; the local pulse runs only in the final ten visible seconds.
 class CountdownRing final : public QWidget {
 public:
     explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {
-        setMinimumSize(160,160);setMaximumSize(320,320);
+        setMinimumSize(160,160);setMaximumSize(280,280);
         QSizePolicy policy(QSizePolicy::Preferred,QSizePolicy::Preferred);policy.setHeightForWidth(true);setSizePolicy(policy);
         // Local repaint only, at 30 fps for the last ten visible seconds.
         // Sending still follows StreamDock's elapsed timer, independently.
@@ -932,10 +997,10 @@ public:
         pulseTimer_.setInterval(33);
         connect(&pulseTimer_,&QTimer::timeout,this,[this]{update();});
     }
-    QSize sizeHint() const override {return QSize(320,320);}
+    QSize sizeHint() const override {return QSize(236,236);}
     QSize minimumSizeHint() const override {return QSize(160,160);}
     bool hasHeightForWidth() const override {return true;}
-    int heightForWidth(int width) const override {return std::clamp(width,160,320);}
+    int heightForWidth(int width) const override {return std::clamp(width,160,280);}
     void setValues(int remaining, int total) {
         const int next=std::max(0,remaining);
         if(next!=remaining_ || !beat_.isValid()) beat_.start();
