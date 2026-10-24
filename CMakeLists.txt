@@ -74,3 +74,10 @@ endif()
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
 
 install(FILES "$<TARGET_FILE:Qt6::WebSockets>" DESTINATION "${CMAKE_PROJECT_NAME}/bin/64bit")
+
+enable_testing()
+add_executable(stream-notify-logic-tests tests/test_logic.cpp)
+if(MSVC)
+  target_compile_options(stream-notify-logic-tests PRIVATE /UNDEBUG /utf-8)
+endif()
+add_test(NAME donation-thresholds-and-currency COMMAND stream-notify-logic-tests)

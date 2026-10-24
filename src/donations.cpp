@@ -24,6 +24,16 @@ QString ledgerPath() {
     if(!path) return {};
     QString result = QString::fromUtf8(path); bfree(path); return result;
 }
+QString ratesPath() {
+    char* raw=obs_module_config_path("exchange-rates.json");
+    if(!raw)return {};
+    const QString path=QString::fromUtf8(raw);bfree(raw);return path;
+}
+QJsonObject savedRates() {
+    QFile file(ratesPath());
+    if(!file.open(QIODevice::ReadOnly))return {};
+    return QJsonDocument::fromJson(file.readAll()).object();
+}
 QString jsonString(const QJsonValue& value) {
     return value.isString() ? value.toString() : value.isDouble() ? QString::number(value.toDouble(),'f',0) : QString();
 }
@@ -63,10 +73,11 @@ QString cleanUserText(QString v) {
 int donationLevel(const Donation& d,const DonationSettings& s) {
     if(d.isTest||d.id.isEmpty())return -1;
     const QString cur=d.currency.trimmed().toUpper();
-    if(!s.thresholds.contains(cur))return -1;
-    const QVector<double> a=s.thresholds.value(cur);
-    if(a.size()!=3)return -1;
-    return donation_logic::levelForAmount(d.amount,{a[0],a[1],a[2]});
+    const auto thresholds=s.thresholds.value("RUB");
+    if(thresholds.size()!=3)return -1;
+    const double rate=cur=="RUB"?1.0:savedRates().value("rub_per_unit").toObject().value(cur).toDouble(0);
+    return donation_logic::levelForConvertedAmount(d.amount,rate,
+        {thresholds[0],thresholds[1],thresholds[2]});
 }
 
 QString donationMessage(const Donation& d, const DonationSettings& s,int level,const QString& url) {
@@ -216,6 +227,7 @@ void DonationEngine::setLive(bool active) {
 void DonationEngine::configure() {
     if(closing_)return;
     const auto& s=store_->current.donations;
+    if(s.enabled)fetchRates();
     const bool monitoringPermitted=s.enabled && (!s.onlyLive || live_);
     const QString newDA=monitoringPermitted && s.daEnabled && !s.daToken.isEmpty()?s.daToken:QString();
     const QString newDP=monitoringPermitted && s.dpEnabled && !s.dpToken.isEmpty() && s.legacyApiOptIn?s.dpToken:QString();
@@ -409,4 +421,52 @@ void DonationEngine::previewTest(int level) {
         sender_.send(Channel::Telegram,snap,"🧪 TEST / ТЕСТ\n"+body,[this](Delivery){Q_EMIT updated();});
     if(s.donations.toDiscord&&s.discordEnabled&&validDiscord(snap.webhook))
         sender_.send(Channel::Discord,snap,"🧪 TEST / ТЕСТ\n"+body,[this](Delivery){Q_EMIT updated();});
+}
+
+QString DonationEngine::ratesStatus() const {
+    const auto data=savedRates();
+    if(!data.value("rub_per_unit").toObject().isEmpty())
+        return "CBR / "+data.value("date").toString()+" / "+QString::number(data.value("rub_per_unit").toObject().size())+" currencies";
+    return ratesLoading_?"Loading exchange rates":"No rates file: RUB only";
+}
+void DonationEngine::fetchRates(bool manual) {
+    if(closing_ || ratesLoading_)return;
+    if(!manual && (ratesAttempted_ || !savedRates().value("rub_per_unit").toObject().isEmpty()))return;
+    ratesAttempted_=true;ratesLoading_=true;
+    QNetworkRequest req(QUrl("https://www.cbr-xml-daily.ru/daily_json.js"));
+    req.setTransferTimeout(15000);
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
+    auto* reply=http_.get(req);
+    connect(reply,&QNetworkReply::finished,this,[this,reply] {
+        ratesLoading_=false;
+        const bool ok=reply->error()==QNetworkReply::NoError &&
+            reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200;
+        const auto input=QJsonDocument::fromJson(reply->readAll()).object();
+        reply->deleteLater();
+        if(closing_)return;
+        if(ok) {
+            QJsonObject rates{{"RUB",1.0}};
+            const auto currencies=input.value("Valute").toObject();
+            for(auto it=currencies.cbegin();it!=currencies.cend();++it) {
+                const auto row=it.value().toObject();
+                const double nominal=row.value("Nominal").toDouble(0);
+                const double value=row.value("Value").toDouble(0);
+                const QString code=row.value("CharCode").toString().toUpper();
+                if(QRegularExpression("^[A-Z]{3}$").match(code).hasMatch() &&
+                    std::isfinite(nominal)&&nominal>0&&std::isfinite(value)&&value>0)
+                    rates[code]=value/nominal;
+            }
+            const QString path=ratesPath();
+            if(rates.size()>1 && !input.value("Date").toString().isEmpty() &&
+                !path.isEmpty() && QDir().mkpath(QFileInfo(path).absolutePath())) {
+                QSaveFile file(path);
+                const QByteArray bytes=QJsonDocument(QJsonObject{
+                    {"source","https://www.cbr-xml-daily.ru/daily_json.js"},
+                    {"date",input.value("Date")},{"rub_per_unit",rates}}).toJson();
+                if(file.open(QIODevice::WriteOnly) && file.write(bytes)==bytes.size())file.commit();
+            }
+        }
+        Q_EMIT updated();
+    });
+    Q_EMIT updated();
 }

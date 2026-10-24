@@ -507,28 +507,19 @@ QWidget* StreamDock::buildDonations()
 
     auto* thresholds=card(&v);
     section(v,uiText("Пороговые суммы", "Donation thresholds"));
-    auto* currencyRow=new QHBoxLayout;
-    auto* currency=new QComboBox;
-    for(const auto& name:s.thresholds.keys())currency->addItem(name);
-    if(currency->count()==0)currency->addItem("RUB");
-    currencyRow->addWidget(currency,1);
-    auto* addCurrency=btn(uiText("+ Валюта", "+ Currency"));
-    connect(addCurrency,&QPushButton::clicked,this,[this]{
-        bool ok=false;QString code=QInputDialog::getText(this,uiText("Валюта", "Currency"),
-            uiText("Трёхбуквенный код (USD, EUR и т.д.)", "Three-letter ISO code (USD, EUR etc.)"),
-            QLineEdit::Normal,"USD",&ok).trimmed().toUpper();
-        if(!ok)return;
-        if(!QRegularExpression("^[A-Z]{3}$").match(code).hasMatch())return;
-        if(!store_.current.donations.thresholds.contains(code))store_.current.donations.thresholds[code]={1,5,20};
-        changeSettings();rebuild();
-    });
-    currencyRow->addWidget(addCurrency);
-    v->addLayout(currencyRow);
+    v->addWidget(label(uiText("Все пороги — в рублях. Курсы сохраняются один раз, без автообновлений.",
+        "All thresholds are in RUB. Rates are saved once, without automatic refresh."),"Hint"));
+    auto* ratesLabel=label(donation_.ratesStatus(),"Hint");
+    v->addWidget(ratesLabel);
+    connect(&donation_,&DonationEngine::updated,ratesLabel,[this,ratesLabel]{ratesLabel->setText(donation_.ratesStatus());});
+    auto* ratesButton=btn(uiText("Загрузить / обновить курсы", "Load / refresh rates"));
+    connect(ratesButton,&QPushButton::clicked,this,[this]{donation_.fetchRates(true);});
+    v->addWidget(ratesButton);
     auto* thresholdEditors=new QWidget;
     auto* editorLayout=column(thresholdEditors,5,0);
-    auto populateThresholds=[this,currency,editorLayout]() {
+    auto populateThresholds=[this,editorLayout]() {
         while(QLayoutItem* item=editorLayout->takeAt(0)) {if(item->widget())delete item->widget();delete item;}
-        const QString code=currency->currentText();
+        const QString code="RUB";
         auto& thresholds=store_.current.donations.thresholds[code];
         if(thresholds.size()!=3)thresholds={100,500,2000};
         const QStringList names={uiText("💰 Обычный", "💰 Standard"),uiText("🔥 Крупный", "🔥 Large"),uiText("👑 Мега", "👑 Mega")};
@@ -553,7 +544,6 @@ QWidget* StreamDock::buildDonations()
         editorLayout->addWidget(label(uiText("Пороги должны строго возрастать. Изменения применяются только к новым донатам.",
             "Thresholds must strictly increase. Changes apply to future donations only."),"Hint"));
     };
-    connect(currency,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[populateThresholds](int){populateThresholds();});
     populateThresholds();v->addWidget(thresholdEditors);
     outer->addWidget(thresholds);
 
@@ -952,7 +942,7 @@ void StreamDock::testChannel(Channel channel)
          uiText("⚠ Ошибка теста: ", "⚠ Test error: ") + d.detail;
         if(channel == Channel::Telegram) {testingTelegram_=false;transientTelegram_=text;}
         else {testingDiscord_=false;transientDiscord_=text;}
-        store_.addEvent((channel == Channel::Telegram ? "TEST_TELEGRAM " : "TEST_DISCORD ")+
+        store_.addEvent(QString(channel == Channel::Telegram ? "TEST_TELEGRAM " : "TEST_DISCORD ")+
                         (d.status == Outcome::Sent ? "OK" : "FAIL"));
         rebuild();
     });

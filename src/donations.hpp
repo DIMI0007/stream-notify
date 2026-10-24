@@ -50,6 +50,8 @@ public:
     QString daStatus() const { return daStatus_; }
     QString dpStatus() const { return dpStatus_; }
     QStringList journal() const { return ledger_.recent(); }
+    void fetchRates(bool manual = false);
+    QString ratesStatus() const;
     void checkDonationAlerts();
     void checkDonatePay();
     void previewTest(int level); // Explicit test; no fake event is inserted into ledger.
@@ -83,4 +85,5 @@ private:
     QSet<QString> dpBaseline_;
     QSet<QString> openJobs_;
     bool resettingSocket_ = false;
+    bool ratesAttempted_ = false, ratesLoading_ = false;
 };

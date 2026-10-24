@@ -14,4 +14,8 @@ inline int levelForAmount(double amount,const std::array<double,3>& a) {
     if(amount>=a[0])return 0;
     return -1;
 }
+inline int levelForConvertedAmount(double amount,double rubPerUnit,const std::array<double,3>& thresholds) {
+    if(!std::isfinite(rubPerUnit)||rubPerUnit<=0)return -1;
+    return levelForAmount(amount*rubPerUnit,thresholds);
+}
 }

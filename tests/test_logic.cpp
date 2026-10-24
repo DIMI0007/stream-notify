@@ -20,5 +20,14 @@ int main(){
     assert(!validThresholds({0,500,2000}));
     assert(!validThresholds({2000,500,100}));
     assert(levelForAmount(1000,{100,100,2000})==-1);
-    std::cout<<"Donation threshold logic tests: passed (13 assertions)\n";
+    assert(levelForConvertedAmount(1,90,rub)==-1);
+    assert(levelForConvertedAmount(2,90,rub)==0);
+    assert(levelForConvertedAmount(1,100,rub)==0);
+    assert(levelForConvertedAmount(1,500,rub)==1);
+    assert(levelForConvertedAmount(1,2000,rub)==2);
+    assert(levelForConvertedAmount(1,0,rub)==-1);
+    assert(levelForConvertedAmount(1,-90,rub)==-1);
+    assert(levelForConvertedAmount(1,std::numeric_limits<double>::quiet_NaN(),rub)==-1);
+    assert(levelForConvertedAmount(1e308,1e308,rub)==-1);
+    std::cout<<"Donation threshold logic tests: passed\n";
 }

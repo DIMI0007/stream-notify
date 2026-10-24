@@ -15,6 +15,8 @@ jobs:
         run: cmake --preset windows-ci-x64
       - name: Build Windows x64 DLL
         run: cmake --build --preset windows-x64 --config RelWithDebInfo --parallel
+      - name: Test thresholds and currency conversion
+        run: ctest --test-dir build_x64 -C RelWithDebInfo --output-on-failure
       - name: Stage plugin
         run: |
           cmake --install build_x64 --config RelWithDebInfo --prefix package
