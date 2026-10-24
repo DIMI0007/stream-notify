@@ -1,12 +1,12 @@
 # Первая тестовая DLL Stream Notify
 
-Сборка: Windows x64, OBS 31.1.1, Qt из obs-deps 2025-07-11.
-Проверка компиляции не подтверждает работу внутри OBS. Для первого теста используйте OBS 31.1.1 x64, желательно отдельную portable-копию.
+Сборка: Windows x64, OBS 33.0.0, Qt из obs-deps 2026-10-23.
+Проверка компиляции не подтверждает работу внутри OBS. Для первого теста используйте OBS 33.0.0 x64, желательно отдельную portable-копию.
 Другие версии OBS требуют отдельной проверки совместимости Qt/ABI.
 
 ## Получение
 Откройте Actions → Build Stream Notify test DLL (Windows).
-После успешной сборки скачайте артефакт StreamNotify-Test-DLL-Windows-x64.
+После успешной сборки скачайте артефакт StreamNotify-Test-DLL-OBS33-Windows-x64.
 Архив должен содержать stream-notify/bin/64bit/stream-notify.dll и Qt6WebSockets.dll.
 PDB нужен для диагностики, не для запуска. SHA256.txt содержит контрольные суммы.
 
@@ -37,3 +37,8 @@ DonatePay использует экспериментальный legacy-ада�
 ## Источник сборочных модулей
 cmake/ и CMakePresets.json основаны на obsproject/obs-plugintemplate, commit 3e7d7ac3b5342cd7d9b88890b9c70b472d1520fc.
 Лицензия upstream: LICENSE.obs-plugintemplate.
+
+В OBS 33 изменена структура установки плагинов. Указанный выше каталог ProgramData
+используется как legacy-путь, который OBS 33 ещё поддерживает (до OBS 34).
+Подпись внизу панели: Developed by OTMOPOZOK, постоянная ссылка на ID YouTube-канала.
+Настройка порогов и файла курсов описана в docs/CURRENCY_RU.md.

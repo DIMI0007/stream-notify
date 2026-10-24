@@ -2,6 +2,9 @@
 #include <obs.h>
 #include <obs-frontend-api.h>
 #include <QPainter>
+#include <QPainterPath>
+#include <QMouseEvent>
+#include <QKeyEvent>
 #include <QPaintEvent>
 #include <QScrollArea>
 #include <QPushButton>
@@ -81,6 +84,56 @@ QLabel* paragraph(const QString& text, QWidget* parent = nullptr)
     return l;
 }
 }
+
+
+class CreditFooter final : public QWidget {
+public:
+    explicit CreditFooter(QWidget* parent=nullptr):QWidget(parent) {
+        setFixedHeight(26);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);
+        setAccessibleName("Developed by OTMOPOZOK — YouTube");
+        setToolTip("https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/");
+    }
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
+        QFont f=font();f.setPixelSize(11);p.setFont(f);
+        const QFontMetricsF m(f);
+        const QString prefix="Developed by ",nick="OTMOPOZOK";
+        const qreal x=std::max(qreal(2),(width()-m.horizontalAdvance(prefix+nick))/2);
+        const qreal baseline=(height()-m.height())/2+m.ascent();
+        const qreal nickX=x+m.horizontalAdvance(prefix);
+        nickRect_=QRectF(nickX-2,baseline-m.ascent()-2,m.horizontalAdvance(nick)+4,m.height()+4);
+        auto draw=[&](qreal left,const QString& text,const QColor& fill) {
+            QPainterPath path;path.addText(QPointF(left,baseline),f,text);
+            p.setPen(QPen(QColor(255,255,255,70),1.0,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));
+            p.setBrush(fill);p.drawPath(path);
+        };
+        draw(x,prefix,QColor("#9299a5"));
+        draw(nickX,nick,hover_?QColor("#59dfff"):QColor("#9299a5"));
+        if(hover_||hasFocus()) {
+            p.setPen(QPen(QColor("#59dfff"),1));
+            p.drawLine(QPointF(nickX,baseline+2),QPointF(nickX+m.horizontalAdvance(nick),baseline+2));
+        }
+    }
+    void mouseMoveEvent(QMouseEvent* event) override {
+        const bool next=nickRect_.contains(event->position());
+        if(next!=hover_){hover_=next;setCursor(next?Qt::PointingHandCursor:Qt::ArrowCursor);update();}
+    }
+    void leaveEvent(QEvent*) override {hover_=false;setCursor(Qt::ArrowCursor);update();}
+    void mouseReleaseEvent(QMouseEvent* event) override {
+        if(event->button()==Qt::LeftButton && nickRect_.contains(event->position()))openChannel();
+    }
+    void keyPressEvent(QKeyEvent* event) override {
+        if(event->key()==Qt::Key_Return||event->key()==Qt::Key_Enter||event->key()==Qt::Key_Space)openChannel();
+        else QWidget::keyPressEvent(event);
+    }
+    void focusInEvent(QFocusEvent* event) override {QWidget::focusInEvent(event);update();}
+    void focusOutEvent(QFocusEvent* event) override {QWidget::focusOutEvent(event);update();}
+private:
+    void openChannel(){QDesktopServices::openUrl(QUrl("https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/"));}
+    QRectF nickRect_;
+    bool hover_=false;
+};
 
 StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_(this), testSender_(this), donation_(&store_,this)
 {
@@ -185,13 +238,7 @@ void StreamDock::rebuild()
         saveLabel_->setAlignment(Qt::AlignCenter);
         root_->addWidget(saveLabel_);
     }
-    auto* author = new QLabel(QStringLiteral("Developed by ") +
-        "<a href=\"https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/\"><span style=\"color:#59dfff;\">OTMOPOZOK</span></a>");
-    author->setTextFormat(Qt::RichText);
-    author->setOpenExternalLinks(true);
-    author->setTextInteractionFlags(Qt::LinksAccessibleByMouse | Qt::LinksAccessibleByKeyboard);
-    author->setAlignment(Qt::AlignCenter);
-    root_->addWidget(author);
+    root_->addWidget(new CreditFooter(this));
 }
 
 QWidget* StreamDock::buildRegular()

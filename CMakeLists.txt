@@ -22,14 +22,14 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(libobs REQUIRED)
 find_package(obs-frontend-api REQUIRED)
-find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui Widgets Network)
+find_package(Qt6 6.11.1 EXACT REQUIRED COMPONENTS Core Gui Widgets Network)
 find_package(Qt6WebSockets QUIET)
 if(NOT Qt6WebSockets_FOUND)
   # obs-deps omits WebSockets. Build the matching Qt module, never replace OBS Qt.
   include(FetchContent)
   FetchContent_Declare(qtwebsockets
     GIT_REPOSITORY https://github.com/qt/qtwebsockets.git
-    GIT_TAG 621eb11be893be975d0ddd5b1230838bb0bf8810
+    GIT_TAG 451920600d7f0b8a4b458bba56a2dd303e587026
     SOURCE_SUBDIR unused)
   FetchContent_MakeAvailable(qtwebsockets)
   set(_ws_prefix "${CMAKE_BINARY_DIR}/qtwebsockets-install")
@@ -47,7 +47,7 @@ if(NOT Qt6WebSockets_FOUND)
   list(PREPEND CMAKE_PREFIX_PATH "${_ws_prefix}")
   set(Qt6WebSockets_DIR "${_ws_prefix}/lib/cmake/Qt6WebSockets" CACHE PATH "" FORCE)
 endif()
-find_package(Qt6WebSockets 6.8.3 EXACT REQUIRED)
+find_package(Qt6WebSockets 6.11.1 EXACT REQUIRED)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
   src/plugin.cpp

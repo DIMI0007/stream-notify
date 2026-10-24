@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   windows:
-    runs-on: windows-2022
+    runs-on: windows-2025
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -26,6 +26,6 @@ jobs:
           Get-FileHash package/stream-notify/bin/64bit/*.dll | Format-Table -AutoSize | Out-File package/SHA256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: StreamNotify-Test-DLL-Windows-x64
+          name: StreamNotify-Test-DLL-OBS33-Windows-x64
           path: package/
           if-no-files-found: error
