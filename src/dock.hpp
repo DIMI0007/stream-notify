@@ -61,6 +61,8 @@ private:
     QString uiText(const char* ru, const char* en) const;
     bool isRu() const;
     void rebuild();
+    void rebuildNow();
+    bool rebuildPending_ = false;
     QWidget* buildRegular();
     QWidget* buildHome();
     QWidget* buildConnections();

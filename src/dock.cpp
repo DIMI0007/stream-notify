@@ -1,4 +1,5 @@
 #include "dock.hpp"
+#include "telegram_channel.hpp"
 #include <obs.h>
 #include <obs-frontend-api.h>
 #include <QPainter>
@@ -207,6 +208,18 @@ void StreamDock::updateSaved(bool success)
 
 void StreamDock::rebuild()
 {
+    // Never destroy a control while Qt is still delivering its input signal.
+    // Coalesce changes and let the current event return before replacing widgets.
+    if(shuttingDown_ || rebuildPending_)return;
+    rebuildPending_=true;
+    QTimer::singleShot(0,this,[this] {
+        rebuildPending_=false;
+        if(!shuttingDown_)rebuildNow();
+    });
+}
+
+void StreamDock::rebuildNow()
+{
     // All text inputs continuously update SettingsStore::current, so rebuilding
     // for a language switch never discards uncommitted typed text.
     while (QLayoutItem* item = root_->takeAt(0)) {
@@ -266,16 +279,24 @@ QWidget* StreamDock::buildRegular()
     nav->addWidget(home); nav->addWidget(settings);
     vertical->addWidget(tabs);
     if (page_ != Page::Home) {
-        auto* sub = new QComboBox;
-        sub->setAccessibleName(uiText("Раздел настроек", "Settings section"));
-        sub->addItem(uiText("Связь", "Connections"),int(Page::Connections));
-        sub->addItem(uiText("Сообщение", "Message"),int(Page::Message));
-        sub->addItem(uiText("Интерфейс", "Interface"),int(Page::Interface));
-        sub->addItem(uiText("Донаты", "Donations"),int(Page::Donations));
-        sub->setCurrentIndex(sub->findData(int(page_)));
-        connect(sub,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,sub](int){
-            showPage(static_cast<Page>(sub->currentData().toInt()));
-        });
+        auto* sub = new QWidget;
+        auto* subnav = new QGridLayout(sub);
+        subnav->setContentsMargins(0,0,0,0);
+        subnav->setSpacing(4);
+        const struct {Page page; QString name;} pages[] = {
+            {Page::Connections, uiText("Связь", "Connect")},
+            {Page::Message, uiText("Сообщение", "Message")},
+            {Page::Interface, uiText("Интерфейс", "Interface")},
+            {Page::Donations, uiText("Донаты", "Donations")}
+        };
+        int subIndex = 0;
+        for (const auto& p : pages) {
+            auto* b = btn(p.name);
+            if(p.page == page_) b->setObjectName("ActiveNav");
+            connect(b, &QPushButton::clicked, this, [this,p] {showPage(p.page);});
+            subnav->addWidget(b, subIndex / 2, subIndex % 2);
+            ++subIndex;
+        }
         vertical->addWidget(sub);
     }
     auto* scroll = new QScrollArea;
@@ -388,7 +409,7 @@ QWidget* StreamDock::buildConnections()
     tg->setChecked(store_.current.telegramEnabled);
     connect(tg, &QCheckBox::toggled, this, [this](bool val){store_.current.telegramEnabled=val;changeSettings();});
     v->addWidget(tg);
-    v->addWidget(label(uiText("Токен бота", "Bot token"), "Hint"));
+    v->addWidget(label(uiText("1. Токен из @BotFather", "1. Token from @BotFather"), "Hint"));
     auto* token = new QLineEdit(store_.current.telegramToken);
     token->setEchoMode(QLineEdit::Password);
     token->setPlaceholderText("123456789:... (BotFather)");
@@ -396,16 +417,49 @@ QWidget* StreamDock::buildConnections()
     auto* showToken = btn(uiText("Показать", "Show"));
     connect(showToken, &QPushButton::clicked, this, [token] {token->setEchoMode(token->echoMode()==QLineEdit::Password ? QLineEdit::Normal : QLineEdit::Password);});
     rowWith(v, token, showToken);
-    v->addWidget(label(uiText("ID чата / @канал", "Chat ID / @channel"), "Hint"));
+    v->addWidget(label(uiText("2. Канал для уведомлений", "2. Notification channel"), "Hint"));
     auto* chat = new QLineEdit(store_.current.telegramChat);
-    connect(chat, &QLineEdit::textChanged, this, [this](const QString& s){store_.current.telegramChat=s;changeSettings();});
+    chat->setPlaceholderText(uiText("@канал или ссылка t.me/…", "@channel or t.me/… link"));
+    chat->setToolTip(uiText("Публичный: @имя или ссылка. Приватный: ссылка на сообщение t.me/c/… или ID -100…",
+        "Public: @name or link. Private: t.me/c/… message link or -100… ID."));
+    connect(chat, &QLineEdit::textChanged, this, [this](const QString& s){store_.current.telegramChat=telegramChannel(s);changeSettings();});
     v->addWidget(chat);
+    auto* channelHint=label(QString(),"Hint");
+    auto updateChannelHint=[this,channelHint](const QString& value) {
+        const QString normalized=telegramChannel(value);
+        const bool valid=QRegularExpression("^(?:-?[0-9]+|@[A-Za-z0-9_]{5,})$").match(normalized).hasMatch();
+        channelHint->setText(value.trimmed().isEmpty()
+            ? uiText("Бот должен быть администратором канала.", "The bot must be a channel administrator.")
+            : valid ? uiText("Получатель: ", "Recipient: ")+normalized
+            : uiText("Нужен @канал или ссылка на сообщение. Ссылка-приглашение не подходит.",
+                     "Use @channel or a message link. Invite links are not supported."));
+    };
+    connect(chat,&QLineEdit::textChanged,channelHint,updateChannelHint);
+    updateChannelHint(chat->text());
+    v->addWidget(channelHint);
     auto* h1 = new QHBoxLayout;
-    auto* testTg = btn(uiText("Тест Telegram", "Test Telegram"));
-    testTg->setEnabled(!testingTelegram_);
+    auto* testTg = btn(uiText("3. Отправить тест", "3. Send test"));
+    testTg->setEnabled(!testingTelegram_ && validTelegram(store_.current.telegramToken,store_.current.telegramChat));
+    auto updateTelegramTest=[this,testTg] {testTg->setEnabled(!testingTelegram_ && validTelegram(store_.current.telegramToken,store_.current.telegramChat));};
+    connect(token,&QLineEdit::textChanged,testTg,updateTelegramTest);
+    connect(chat,&QLineEdit::textChanged,testTg,updateTelegramTest);
     connect(testTg, &QPushButton::clicked, this, [this] {testChannel(Channel::Telegram);});
     auto* helpTg = btn(uiText("Как настроить?", "Setup guide"));
-    connect(helpTg, &QPushButton::clicked, this, [] {QDesktopServices::openUrl(QUrl("https://t.me/BotFather"));});
+    connect(helpTg, &QPushButton::clicked, this, [this] {
+        QMessageBox::information(this,uiText("Подключение Telegram", "Connect Telegram"),uiText(
+            "1. Откройте @BotFather в Telegram. Создайте бота командой /newbot или выберите своего через /mybots. Скопируйте токен сюда, в поле плагина.\n\n"
+            "2. В настройках канала добавьте бота в администраторы. Достаточно права «Публикация сообщений».\n\n"
+            "3. Публичный канал: вставьте @имя или ссылку t.me/имя.\n"
+            "Приватный канал: скопируйте ссылку на любое сообщение внутри канала (t.me/c/…) и вставьте её. Плагин определит ID. Ссылка-приглашение t.me/+… не подходит.\n\n"
+            "4. Включите Telegram и нажмите «Отправить тест». Трансляцию запускать не нужно.\n\n"
+            "Токен вводите только здесь. Не отправляйте его в чат или GitHub.",
+            "1. Open @BotFather in Telegram. Create a bot with /newbot or select yours with /mybots. Paste its token into the plugin.\n\n"
+            "2. Add the bot as a channel administrator with permission to post messages.\n\n"
+            "3. Public channel: paste @name or t.me/name.\n"
+            "Private channel: paste a link to a message inside the channel (t.me/c/…). The plugin extracts the ID. Invite links t.me/+… are not supported.\n\n"
+            "4. Enable Telegram and click Send test. No livestream is needed.\n\n"
+            "Enter the token locally only; never share it in chat or GitHub."));
+    });
     h1->addWidget(testTg); h1->addWidget(helpTg);
     v->addLayout(h1);
     if (!transientTelegram_.isEmpty()) v->addWidget(label(transientTelegram_,"Hint"));
@@ -427,7 +481,8 @@ QWidget* StreamDock::buildConnections()
     rowWith(v, hook, showHook);
     auto* h2 = new QHBoxLayout;
     auto* testDc = btn(uiText("Тест Discord", "Test Discord"));
-    testDc->setEnabled(!testingDiscord_);
+    testDc->setEnabled(!testingDiscord_ && validDiscord(store_.current.discordWebhook));
+    connect(hook,&QLineEdit::textChanged,testDc,[this,testDc]{testDc->setEnabled(!testingDiscord_ && validDiscord(store_.current.discordWebhook));});
     connect(testDc, &QPushButton::clicked, this, [this] {testChannel(Channel::Discord);});
     auto* helpDc = btn(uiText("Как создать?", "Setup guide"));
     connect(helpDc, &QPushButton::clicked, this, [] {QDesktopServices::openUrl(QUrl("https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks"));});

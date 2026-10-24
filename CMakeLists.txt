@@ -81,3 +81,9 @@ if(MSVC)
   target_compile_options(stream-notify-logic-tests PRIVATE /UNDEBUG /utf-8)
 endif()
 add_test(NAME donation-thresholds-and-currency COMMAND stream-notify-logic-tests)
+
+add_executable(stream-notify-telegram-tests tests/test_telegram_channel.cpp)
+target_link_libraries(stream-notify-telegram-tests PRIVATE Qt6::Core)
+add_test(NAME telegram-channel-links COMMAND stream-notify-telegram-tests)
+set_tests_properties(telegram-channel-links PROPERTIES
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")

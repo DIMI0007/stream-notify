@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <QTimer>
 #include <QUrlQuery>
+#include <QRegularExpression>
 #include <algorithm>
 #include <memory>
 
@@ -63,7 +64,12 @@ void Sender::start(const std::shared_ptr<Task>& task)
         const QJsonDocument data = QJsonDocument::fromJson(raw);
         const QJsonObject body = data.isObject() ? data.object() : QJsonObject{};
         const QByteArray retryHeader = reply->rawHeader("Retry-After");
-        // Never surface raw Qt errorString: it may contain URL with credentials.
+        // Remove secrets and URLs before exposing a transport failure reason.
+        QString networkReason=reply->errorString();
+        if(!task->s.token.isEmpty())networkReason.replace(task->s.token,QStringLiteral("[hidden]"));
+        if(!task->s.webhook.isEmpty())networkReason.replace(task->s.webhook,QStringLiteral("[hidden]"));
+        networkReason.replace(QRegularExpression("https?://[^\\s\"<>]+"),QStringLiteral("[URL hidden]"));
+        networkReason=networkReason.left(240);
         const int errorCode = int(net);
         reply->deleteLater();
 
@@ -96,7 +102,7 @@ void Sender::start(const std::shared_ptr<Task>& task)
                 return;
             }
             task->done({neverConnected ? Outcome::Failed : Outcome::Unknown,
-                        neverConnected ? QString("Connection failed") : QString("Could not confirm delivery (network error %1)").arg(errorCode), task->attempts});
+                        neverConnected ? QString("Connection failed") : QString("Network error %1: %2. Check connection or VPN/proxy; delivery not confirmed.").arg(errorCode).arg(networkReason), task->attempts});
             return;
         }
         bool success = false;
