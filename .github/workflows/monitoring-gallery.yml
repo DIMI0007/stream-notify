@@ -17,32 +17,27 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           import os, subprocess, io, zipfile, base64
-          from PIL import Image
           result=subprocess.run(["curl","--fail","--silent","--show-error","--location",
               "-H","Authorization: Bearer "+os.environ["GH_TOKEN"],
               "https://api.github.com/repos/DIMI0007/stream-notify/actions/artifacts/12572661100/zip",
               "-o","previews.zip"])
           if result.returncode: raise RuntimeError("Could not download tested UI artifact")
           files={
-              "home.jpg":"wide/16-monitoring-home.png",
-              "monitoring.jpg":"obs-dock/17-monitoring-bottom.png",
-              "home-setup.jpg":"obs-dock/01-home.png",
-              "connections.jpg":"obs-dock/02-connections.png",
-              "message.jpg":"obs-dock/03-message.png",
-              "result.jpg":"obs-dock/09-result.png",
-              "countdown.jpg":"obs-dock/08-countdown.png",
-              "donations-services.jpg":"wide/05-donations.png",
-              "donations-delivery.jpg":"wide/10-donations-send.png",
-              "donations-amounts.jpg":"wide/11-donations-amounts.png",
-              "donations-text.jpg":"wide/12-donations-text.png",
+              "home.png":"wide/16-monitoring-home.png",
+              "monitoring.png":"obs-dock/17-monitoring-bottom.png",
+              "home-setup.png":"obs-dock/01-home.png",
+              "connections.png":"obs-dock/02-connections.png",
+              "message.png":"obs-dock/03-message.png",
+              "result.png":"obs-dock/09-result.png",
+              "countdown.png":"obs-dock/08-countdown.png",
+              "donations-services.png":"wide/05-donations.png",
+              "donations-delivery.png":"wide/10-donations-send.png",
+              "donations-amounts.png":"wide/11-donations-amounts.png",
+              "donations-text.png":"wide/12-donations-text.png",
           }
           with zipfile.ZipFile("previews.zip") as archive:
               for target,path in files.items():
-                  with Image.open(io.BytesIO(archive.read(path))) as source:
-                      image=source.convert("RGB")
-                      image.thumbnail((700,1200))
-                      stream=io.BytesIO();image.save(stream,format="JPEG",quality=92)
-                  data=base64.b64encode(stream.getvalue()).decode()
+                  data=base64.b64encode(archive.read(path)).decode()
                   print("GALLERY_BEGIN:"+target)
                   for i in range(0,len(data),1000): print("GALLERY_DATA:"+data[i:i+1000])
                   print("GALLERY_END")
