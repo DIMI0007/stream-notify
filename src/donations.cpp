@@ -447,7 +447,7 @@ void DonationEngine::fetchRates(bool manual) {
         if(ok) {
             QJsonObject rates{{"RUB",1.0}};
             const auto currencies=input.value("Valute").toObject();
-            for(auto it=currencies.cbegin();it!=currencies.cend();++it) {
+            for(auto it=currencies.constBegin();it!=currencies.constEnd();++it) {
                 const auto row=it.value().toObject();
                 const double nominal=row.value("Nominal").toDouble(0);
                 const double value=row.value("Value").toDouble(0);
