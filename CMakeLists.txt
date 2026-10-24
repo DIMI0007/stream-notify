@@ -22,7 +22,31 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(libobs REQUIRED)
 find_package(obs-frontend-api REQUIRED)
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network WebSockets)
+find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui Widgets Network)
+find_package(Qt6WebSockets QUIET)
+if(NOT Qt6WebSockets_FOUND)
+  # obs-deps omits WebSockets. Build the matching Qt module, never replace OBS Qt.
+  include(FetchContent)
+  FetchContent_Declare(qtwebsockets
+    GIT_REPOSITORY https://github.com/qt/qtwebsockets.git
+    GIT_TAG 621eb11be893be975d0ddd5b1230838bb0bf8810
+    SOURCE_SUBDIR unused)
+  FetchContent_MakeAvailable(qtwebsockets)
+  set(_ws_prefix "${CMAKE_BINARY_DIR}/qtwebsockets-install")
+  execute_process(COMMAND "${CMAKE_COMMAND}"
+    -S "${qtwebsockets_SOURCE_DIR}" -B "${CMAKE_BINARY_DIR}/qtwebsockets-build"
+    -G "${CMAKE_GENERATOR}" -A "${CMAKE_GENERATOR_PLATFORM}"
+    "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
+    "-DCMAKE_INSTALL_PREFIX=${_ws_prefix}"
+    -DBUILD_WITH_PCH=OFF -DQT_BUILD_TESTS=OFF -DQT_BUILD_EXAMPLES=OFF
+    COMMAND_ERROR_IS_FATAL ANY)
+  execute_process(COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}/qtwebsockets-build"
+    --config Release --parallel COMMAND_ERROR_IS_FATAL ANY)
+  execute_process(COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}/qtwebsockets-build"
+    --config Release COMMAND_ERROR_IS_FATAL ANY)
+  list(PREPEND CMAKE_PREFIX_PATH "${_ws_prefix}")
+endif()
+find_package(Qt6 REQUIRED COMPONENTS WebSockets)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
   src/plugin.cpp
