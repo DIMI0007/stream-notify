@@ -1,4 +1,5 @@
 #include "dock.hpp"
+#include "ui_widgets.hpp"
 #include "telegram_channel.hpp"
 #include <obs.h>
 #include <obs-frontend-api.h>
@@ -34,20 +35,21 @@
 namespace {
 const char* css = R"(
 QWidget { font-size: 12px; }
-QWidget#StreamRoot { background: #0b1320; color: #dfe8ff; }
-QWidget#Card { background: #131f31; border: 1px solid #283750; border-radius: 8px; }
+QWidget#StreamRoot { background: #080f18; color: #dfe8ff; }
+QWidget#Card { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101925,stop:1 #0b131e); border: 1px solid #263244; border-radius: 8px; }
 QLabel { color: #dfe8ff; background: transparent; }
 QLabel#Hint { color: #9baccc; }
 QLabel#Title { font-weight: 750; font-size: 17px; }
 QLabel#Section { color: #d6e5fa; font-size: 13px; font-weight: 700; }
+QLabel#Waiting { color:#ffdc45; font-weight:700; }
 QLabel#Good { color: #07df91; font-weight: 700; }
 QLabel#Bad { color: #ff8484; font-weight: 700; }
 QLabel#Count { color: #59dfff; font-weight: 750; font-size: 57px; }
-QPushButton { color: #e1ebff; background: #22334c; border: 1px solid #445674; border-radius: 8px; min-height: 20px; padding: 3px 7px; }
+QPushButton { color: #e1ebff; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #202a3b,stop:1 #141d2b); border: 1px solid #39465d; border-radius: 8px; min-height: 20px; padding: 3px 7px; }
 QPushButton:hover { background: #2f4565; }
-QPushButton#ActiveNav { background: #203966; border-color: #4969f2; font-weight: 700; }
+QPushButton#ActiveNav { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #18203c,stop:1 #111e50); border: 1px solid #303e6c; border-bottom: 2px solid #6547ff; font-weight: 700; }
 QPushButton#Cancel { background: #16395b; border-color: #40b7ff; font-weight: 700; min-height: 28px; }
-QLineEdit,QTextEdit,QComboBox { color: #e7eeff; background: #101a2b; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
+QLineEdit,QTextEdit,QComboBox { color: #e7eeff; background: #0c1420; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
 QComboBox QAbstractItemView { background: #101a2b; color: #e7eeff; }
 QCheckBox { color: #dce7fb; spacing: 6px; min-height: 20px; }
 QCheckBox::indicator { width: 16px; height: 16px; }
@@ -79,7 +81,9 @@ QPushButton* btn(const QString& text, QWidget* parent = nullptr)
     auto* p = new QPushButton(text, parent);
     p->setCursor(Qt::PointingHandCursor);
     if(text==QString::fromUtf8("Показать") || text=="Show") {
-        p->setText(QString::fromUtf8("◉"));
+        p->setText(QString());
+        p->setIcon(streamEyeIcon());
+        p->setIconSize(QSize(20,20));
         p->setFixedWidth(28);
         p->setToolTip(text);
         p->setAccessibleName(text);
@@ -234,12 +238,18 @@ void StreamDock::rebuildNow()
     auto* header = new QWidget;
     auto* h = new QHBoxLayout(header);
     h->setContentsMargins(2,2,2,2);
-    auto* t = label("◉ Stream Notify", "Title");
+    h->addWidget(new ServiceBadge("Stream Notify"));
+    auto* t = label("Stream Notify", "Title");
     title_ = t;
     h->addWidget(t, 1);
-    if (store_.current.showStatus)
-        h->addWidget(label(store_.current.enabled ? uiText("● Активен", "● Active") : uiText("○ Выключен", "○ Disabled"),
-                           store_.current.enabled ? "Good" : "Hint"));
+    if (store_.current.showStatus) {
+        auto* status=label(store_.current.enabled ? uiText("● Активен","● Active") : uiText("○ Выключен","○ Disabled"));
+        status->setWordWrap(false);
+        status->setStyleSheet(store_.current.enabled
+            ? "color:#00df8c;background:#072a21;border:1px solid #076944;border-radius:9px;padding:2px 5px;font-size:11px;"
+            : "color:#9baccc;background:#19212d;border:1px solid #3b4659;border-radius:9px;padding:2px 5px;font-size:11px;");
+        h->addWidget(status);
+    }
     root_->addWidget(header);
 
     if (phase_ == Phase::Idle) central_ = buildRegular();
@@ -321,7 +331,7 @@ QWidget* StreamDock::buildHome()
     auto* outer = column(body, 10, 3);
     QVBoxLayout* v;
     auto* enabled = card(&v);
-    auto* toggle = new QCheckBox(uiText("Автоуведомления включены", "Automatic notifications enabled"));
+    auto* toggle = new StreamSwitch(uiText("Автоуведомления включены", "Automatic notifications enabled"));
     toggle->setChecked(store_.current.enabled);
     connect(toggle, &QCheckBox::toggled, this, [this](bool val) {
         store_.current.enabled = val;
@@ -336,7 +346,7 @@ QWidget* StreamDock::buildHome()
     auto* status = card(&v);
     section(v, uiText("Статус трансляции", "Stream status"));
     QString state = broadcasting_ ? uiText("● Стрим активен", "● Stream is live") : uiText("◉ Ожидание трансляции", "◉ Waiting for stream");
-    v->addWidget(label(state, broadcasting_ ? "Good" : "Section"));
+    v->addWidget(label(state, broadcasting_ ? "Good" : "Waiting"));
     QString hint = statusText_;
     if (hint.isEmpty()) hint = broadcasting_ ? uiText("Рассылка не запущена", "No notification pending") :
       uiText("Начните трансляцию в OBS", "Start streaming in OBS");
@@ -348,6 +358,7 @@ QWidget* StreamDock::buildHome()
     auto addChannel = [&](Channel c) {
         const bool tg = (c == Channel::Telegram);
         auto* h = new QHBoxLayout;
+        h->addWidget(new ServiceBadge(tg ? "Telegram" : "Discord"));
         h->addWidget(label(tg ? "Telegram" : "Discord", "Section"));
         QString st = ! (tg ? store_.current.telegramEnabled : store_.current.discordEnabled) ? uiText("Отключён", "Disabled") :
             (tg ? validTelegram(store_.current.telegramToken, store_.current.telegramChat) : validDiscord(store_.current.discordWebhook)) ?
@@ -363,12 +374,12 @@ QWidget* StreamDock::buildHome()
         if(!temp.isEmpty()) v->addWidget(label(temp, "Hint"));
     };
     addChannel(Channel::Telegram); addChannel(Channel::Discord);
-    outer->addWidget(channelCard);
+
 
     auto* links = card(&v);
     section(v, uiText("Ссылки на трансляцию", "Stream links"));
     auto linkRow = [&](const QString& name, const QString& value) {
-        v->addWidget(label(name, "Section"));
+        serviceSection(v,name);
         auto* h = new QHBoxLayout;
         auto* text = label(value.isEmpty() ? uiText("Не задана", "Not set") : value, "Hint");
         text->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -380,6 +391,7 @@ QWidget* StreamDock::buildHome()
     };
     linkRow("YouTube", store_.current.youtubeUrl); linkRow("Twitch", store_.current.twitchUrl);
     outer->addWidget(links);
+    outer->addWidget(channelCard);
 
     auto* last = card(&v);
     section(v, uiText("Последнее уведомление", "Last notification"));
@@ -397,15 +409,15 @@ QWidget* StreamDock::buildConnections()
     auto* outer = column(body, 11, 3);
     QVBoxLayout* v;
     auto* global = card(&v);
-    auto* all = new QCheckBox(uiText("Автоуведомления включены", "Automatic notifications enabled"));
+    auto* all = new StreamSwitch(uiText("Автоуведомления включены", "Automatic notifications enabled"));
     all->setChecked(store_.current.enabled);
     connect(all, &QCheckBox::toggled, this, [this](bool enabled) {store_.current.enabled=enabled;changeSettings();});
     v->addWidget(all);
     outer->addWidget(global);
 
     auto* telegramCard = card(&v);
-    section(v,"Telegram");
-    auto* tg = new QCheckBox(uiText("Отправлять в Telegram", "Send to Telegram"));
+    serviceSection(v,"Telegram");
+    auto* tg = new StreamSwitch(uiText("Отправлять в Telegram", "Send to Telegram"));
     tg->setChecked(store_.current.telegramEnabled);
     connect(tg, &QCheckBox::toggled, this, [this](bool val){store_.current.telegramEnabled=val;changeSettings();});
     v->addWidget(tg);
@@ -466,8 +478,8 @@ QWidget* StreamDock::buildConnections()
     outer->addWidget(telegramCard);
 
     auto* discordCard = card(&v);
-    section(v,"Discord");
-    auto* dc = new QCheckBox(uiText("Отправлять в Discord", "Send to Discord"));
+    serviceSection(v,"Discord");
+    auto* dc = new StreamSwitch(uiText("Отправлять в Discord", "Send to Discord"));
     dc->setChecked(store_.current.discordEnabled);
     connect(dc, &QCheckBox::toggled, this, [this](bool val){store_.current.discordEnabled=val;changeSettings();});
     v->addWidget(dc);
@@ -533,13 +545,17 @@ QWidget* StreamDock::buildMessage()
     auto* delay = card(&v);
     section(v,uiText("Задержка отправки", "Notification delay"));
     v->addWidget(label(uiText("Отсчёт после подтверждённого старта OBS", "Countdown after confirmed OBS stream start"), "Hint"));
-    auto* selection = new QComboBox;
-    selection->addItem(uiText("60 секунд", "60 seconds"), 60);
-    selection->addItem(uiText("90 секунд", "90 seconds"), 90);
-    selection->addItem(uiText("120 секунд", "120 seconds"), 120);
-    selection->setCurrentIndex(selection->findData(store_.current.sendDelay));
-    connect(selection, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this,selection](int){store_.current.sendDelay=selection->currentData().toInt();changeSettings();});
-    v->addWidget(selection);
+    auto* delayRow=new QHBoxLayout;delayRow->setSpacing(4);
+    for(int seconds:{60,90,120}) {
+        auto* choice=btn(QString::number(seconds)+uiText(" сек"," sec"));
+        choice->setCheckable(true);choice->setChecked(store_.current.sendDelay==seconds);
+        if(choice->isChecked())choice->setObjectName("ActiveNav");
+        connect(choice,&QPushButton::clicked,this,[this,seconds]{
+            store_.current.sendDelay=seconds;changeSettings();rebuild();
+        });
+        delayRow->addWidget(choice,1);
+    }
+    v->addLayout(delayRow);
     outer->addWidget(delay);
 
     auto* prev = card(&v);
@@ -568,7 +584,7 @@ QWidget* StreamDock::buildDonations()
     QVBoxLayout* v;
     auto& s = store_.current.donations;
     auto addToggle=[&](QVBoxLayout* l,const QString& title,bool& target) {
-        auto* c=new QCheckBox(title);
+        auto* c=new StreamSwitch(title);
         c->setChecked(target);
         connect(c,&QCheckBox::toggled,this,[this,value=&target](bool checked){*value=checked;changeSettings();});
         l->addWidget(c);
@@ -586,7 +602,7 @@ QWidget* StreamDock::buildDonations()
                         const QString& status,std::function<void()> test){
         QVBoxLayout* l;
         auto* box=card(&l);
-        section(l,title);
+        serviceSection(l,title);
         addToggle(l,uiText("Подключить сервис", "Enable service"),enabled);
         statusLabel=label(status,"Hint");
         l->addWidget(statusLabel);
@@ -604,16 +620,17 @@ QWidget* StreamDock::buildDonations()
     addService("DonationAlerts",s.daEnabled,s.daToken,daStatusLabel_,donation_.daStatus(),[this]{donationConfigure_.stop();donation_.configure();donation_.checkDonationAlerts();});
     addService("DonatePay",s.dpEnabled,s.dpToken,dpStatusLabel_,donation_.dpStatus(),[this]{donationConfigure_.stop();donation_.configure();donation_.checkDonatePay();});
     auto* experimental=card(&v);
-    addToggle(v,uiText("DonatePay: включить проверяемый старый API (экспериментально)",
-                   "DonatePay: enable legacy API adapter (experimental)"),s.legacyApiOptIn);
+    addToggle(v,uiText("Разрешить экспериментальный API DonatePay",
+                   "Allow experimental DonatePay API"),s.legacyApiOptIn);
     v->addWidget(label(uiText("Официальная страница API требует входа. Перед включением проверьте совместимость метода в своём аккаунте. Интервал запросов — 30 сек.",
         "Official API documentation requires sign-in. Verify the endpoint with your account before enabling. 30-second polling."),"Hint"));
     outer->addWidget(experimental);
 
     auto* destinations=card(&v);
     section(v,uiText("Куда отправлять", "Destinations"));
-    addToggle(v,uiText("Telegram (использовать настройки Stream Notify)","Telegram (shared Stream Notify settings)"),s.toTelegram);
-    addToggle(v,uiText("Discord (использовать настройки Stream Notify)","Discord (shared Stream Notify settings)"),s.toDiscord);
+    v->addWidget(label(uiText("Используются подключения из раздела «Связь».","Uses the connections configured in Connections."),"Hint"));
+    addToggle(v,QString("Telegram"),s.toTelegram);
+    addToggle(v,QString("Discord"),s.toDiscord);
     outer->addWidget(destinations);
 
     auto* thresholds=card(&v);
@@ -717,26 +734,30 @@ QWidget* StreamDock::buildInterface()
     QVBoxLayout* v;
     auto* locale = card(&v);
     section(v,uiText("Язык интерфейса", "Interface language"));
-    auto* lang = new QComboBox;
-    lang->addItem(uiText("Автоматически (OBS)", "Automatic (OBS)"), "auto");
-    lang->addItem("Русский", "ru");
-    lang->addItem("English", "en");
-    lang->setCurrentIndex(lang->findData(store_.current.locale));
-    connect(lang, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this,lang](int) {
-        store_.current.locale=lang->currentData().toString();
-        changeSettings();
-        rebuild();
-    });
-    v->addWidget(lang);
+    auto* languageRow=new QHBoxLayout;languageRow->setSpacing(4);
+    const struct {const char* code;QString title;} languages[]={
+        {"auto",uiText("Авто","Auto")},{"ru",QString::fromUtf8("Русский")},{"en",QString("English")}
+    };
+    for(const auto& item:languages) {
+        auto* choice=btn(item.title);choice->setCheckable(true);
+        choice->setChecked(store_.current.locale==item.code);
+        if(choice->isChecked())choice->setObjectName("ActiveNav");
+        const QString code=QString::fromLatin1(item.code);
+        connect(choice,&QPushButton::clicked,this,[this,code] {
+            store_.current.locale=code;changeSettings();rebuild();
+        });
+        languageRow->addWidget(choice,1);
+    }
+    v->addLayout(languageRow);
     outer->addWidget(locale);
 
     auto* appearance = card(&v);
     section(v,uiText("Вид панели", "Appearance"));
-    auto* compact = new QCheckBox(uiText("Компактный режим", "Compact mode"));
+    auto* compact = new StreamSwitch(uiText("Компактный режим", "Compact mode"));
     compact->setChecked(store_.current.compact);
     connect(compact, &QCheckBox::toggled, this, [this](bool b){store_.current.compact=b;changeSettings();rebuild();});
     v->addWidget(compact);
-    auto* show = new QCheckBox(uiText("Показывать статус в заголовке", "Show status in header"));
+    auto* show = new StreamSwitch(uiText("Показывать статус в заголовке", "Show status in header"));
     show->setChecked(store_.current.showStatus);
     connect(show, &QCheckBox::toggled, this, [this](bool b){store_.current.showStatus=b;changeSettings();rebuild();});
     v->addWidget(show);
@@ -875,16 +896,17 @@ QWidget* StreamDock::buildResult()
     const bool partial = (tgSent || dcSent) && !allOk;
     auto* body = new QWidget;
     body->setObjectName("ResultPanel");
-    if(allOk) body->setStyleSheet("QWidget#ResultPanel {background-color: #08643b;border: 1px solid #0cca7c;border-radius: 15px;}");
-    else if (partial) body->setStyleSheet("QWidget#ResultPanel {background-color: #5b3c22;border: 1px solid #cb8a28;border-radius: 15px;}");
-    else body->setStyleSheet("QWidget#ResultPanel {background-color: #58262c;border: 1px solid #de5863;border-radius: 15px;}");
+    if(allOk) body->setStyleSheet("QWidget#ResultPanel {background-color: #0a1b19;border: 1px solid #087b52;border-radius: 15px;}");
+    else if (partial) body->setStyleSheet("QWidget#ResultPanel {background-color: #211c13;border: 1px solid #946629;border-radius: 15px;}");
+    else body->setStyleSheet("QWidget#ResultPanel {background-color: #24151b;border: 1px solid #9e4255;border-radius: 15px;}");
     auto* v = column(body, 16, 13);
     v->addStretch();
     auto* symbol = label(allOk ? "✔" : partial ? "⚠" : "✕");
     QFont big = symbol->font(); big.setPointSize(46); big.setBold(true); symbol->setFont(big);
-    symbol->setStyleSheet("color:#ffffff;");
+    symbol->setFixedSize(76,76);
+    symbol->setStyleSheet(allOk ? "color:#ffffff;background:#00ad69;border:2px solid #00e593;border-radius:38px;" : "color:#ffffff;");
     symbol->setAlignment(Qt::AlignHCenter);
-    v->addWidget(symbol);
+    v->addWidget(symbol,0,Qt::AlignHCenter);
     auto* title = label(allOk ? uiText("Уведомления отправлены", "Notifications sent") :
        partial ? uiText("Отправлено частично", "Partially delivered") : uiText("Не удалось отправить", "Delivery failed"));
     title->setAlignment(Qt::AlignHCenter);
@@ -894,7 +916,8 @@ QWidget* StreamDock::buildResult()
     QVBoxLayout* results;
     auto* cardWidget = card(&results);
     auto detail = [this,results](const QString& name, const Delivery& d) {
-        results->addWidget(label(name + "  " + statusName(d), "Section"));
+        serviceSection(results,name);
+        results->addWidget(label(statusName(d),d.status==Outcome::Sent?"Good":"Hint"));
         if (d.status == Outcome::Failed || d.status == Outcome::Unknown || d.status == Outcome::NotConfigured) {
             results->addWidget(label(d.detail,"Hint"));
         }
@@ -905,6 +928,18 @@ QWidget* StreamDock::buildResult()
                        .arg(session_.resultSeconds),"Hint");
     hint->setAlignment(Qt::AlignCenter);
     v->addWidget(hint);
+    auto* progress=new QProgressBar;
+    progress->setRange(0,session_.resultSeconds);progress->setValue(session_.resultSeconds);progress->setTextVisible(false);
+    progress->setFixedHeight(6);
+    progress->setStyleSheet("QProgressBar {background:#1b293b;border:0;border-radius:3px;} QProgressBar::chunk {background:#00db89;border-radius:3px;}");
+    v->addWidget(progress);
+    auto* tick=new QTimer(progress);tick->setInterval(1000);
+    connect(tick,&QTimer::timeout,progress,[this,progress,hint] {
+        const int remaining=std::max(0,(resultTimer_.remainingTime()+999)/1000);
+        progress->setValue(remaining);
+        hint->setText(uiText("Возврат к панели через %1 сек.","Back to panel in %1 sec.").arg(remaining));
+    });
+    tick->start();
     v->addStretch();
     return body;
 }
