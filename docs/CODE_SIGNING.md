@@ -16,7 +16,7 @@ Only artifacts built from a reviewed commit in [this repository](https://github.
 
 Before distributing a signed package, verify the Authenticode signature of every executable and DLL in that package. Third-party libraries must retain their original publisher identity or use a signing arrangement approved by the signing provider; an installer signature alone does not sign the DLLs inside it.
 
-The repository contains the GPL v2 license text in [LICENSE.obs-plugintemplate](../LICENSE.obs-plugintemplate). The maintainer must confirm the licensing scope of the project's own code and its dependencies before the signing application is submitted.
+The project's own code is licensed under GNU General Public License version 2 (GPL-2.0-only); see [LICENSE](../LICENSE). The original template license is retained separately. Third-party components retain their respective licenses and notices.
 
 ## Privacy and installation
 

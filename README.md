@@ -172,3 +172,7 @@ developed by [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfy
 Подпись Windows-сборок пока не настроена. Готовится заявка на бесплатную подпись через SignPath; одобрение ещё не получено. Текущие артефакты CI не подписаны и могут блокироваться Windows Smart App Control.
 
 [Code signing policy](docs/CODE_SIGNING.md) · [Privacy policy](PRIVACY.md).
+
+## License
+
+Собственный код Stream Notify распространяется под GNU General Public License version 2 (GPL-2.0-only); полный текст — [LICENSE](LICENSE). Исходная лицензия шаблона OBS сохранена в [LICENSE.obs-plugintemplate](LICENSE.obs-plugintemplate). Сторонние компоненты сохраняют свои лицензии и уведомления.
