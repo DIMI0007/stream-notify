@@ -342,17 +342,21 @@ void StreamDock::rebuildNow()
     manualButton->setAccessibleName(manualButton->toolTip());
     connect(manualButton,&QPushButton::clicked,this,[this]{showPage(Page::ManualMessage);});
     h->addWidget(manualButton);
-    if(store_.current.showStatus) {
-        auto* status=new ActivityBadge(store_.current.enabled?uiText("Активен","Active"):uiText("Выключен","Disabled"),store_.current.enabled);
-        status->setToolTip(store_.current.enabled
-            ? uiText("Автоанонсы включены. Подключения Telegram и Discord настраиваются отдельно.",
-                     "Automatic announcements are enabled. Telegram and Discord connections are configured separately.")
-            : uiText("Автоанонсы выключены","Automatic announcements are disabled"));
-        h->addWidget(status);
-    }
+    auto* settingsButton=btn(QString());
+    settingsButton->setObjectName("SettingsShortcut");
+    settingsButton->setIcon(streamNavIcon("settings",page_!=Page::Home&&page_!=Page::ManualMessage));
+    settingsButton->setIconSize(QSize(19,19));
+    settingsButton->setFixedSize(30,28);
+    settingsButton->setToolTip(page_==Page::Home||page_==Page::ManualMessage?
+        uiText("Настройки", "Settings"):uiText("На основное", "Back to Home"));
+    settingsButton->setAccessibleName(settingsButton->toolTip());
+    connect(settingsButton,&QPushButton::clicked,this,[this]{
+        showPage(page_==Page::Home||page_==Page::ManualMessage?Page::Connections:Page::Home);
+    });
+    h->addWidget(settingsButton);
     root_->addWidget(header);
 
-    if (phase_ == Phase::Idle || page_ == Page::ManualMessage) central_ = buildRegular();
+    if (phase_ == Phase::Idle || page_ != Page::Home) central_ = buildRegular();
     else if (phase_ == Phase::Counting) central_ = buildCountdown();
     else if (phase_ == Phase::Sending) central_ = buildSending();
     else if (phase_ == Phase::Result) central_ = buildResult();
@@ -363,7 +367,7 @@ void StreamDock::rebuildNow()
         v->addWidget(label(uiText("Текущий эфир больше не будет объявлен", "No notification will be sent for this stream")), 0, Qt::AlignHCenter);
         v->addStretch();
     }
-    if(phase_!=Phase::Idle) {
+    if(phase_!=Phase::Idle && page_==Page::Home) {
         auto* scroll=new QScrollArea;
         scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);
         scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -400,22 +404,6 @@ QWidget* StreamDock::buildRegular()
         scroll->setWidget(body);vertical->addWidget(scroll,1);
         return wrap;
     }
-    auto* tabs = new QWidget;
-    auto* nav = new QHBoxLayout(tabs);
-    nav->setContentsMargins(0,0,0,0);
-    nav->setSpacing(4);
-    auto* home = btn(uiText("Основное", "Home"));
-    home->setIcon(streamNavIcon("home",page_==Page::Home));
-    home->setIconSize(QSize(18,18));
-    auto* settings = btn(uiText("Настройки", "Settings"));
-    settings->setIcon(streamNavIcon("settings",page_!=Page::Home));
-    settings->setIconSize(QSize(18,18));
-    home->setObjectName(page_ == Page::Home ? "ActiveNav" : "");
-    settings->setObjectName(page_ != Page::Home ? "ActiveNav" : "");
-    connect(home, &QPushButton::clicked, this, [this] {showPage(Page::Home);});
-    connect(settings, &QPushButton::clicked, this, [this] {showPage(Page::Connections);});
-    nav->addWidget(home); nav->addWidget(settings);
-    vertical->addWidget(tabs);
     if (page_ != Page::Home) {
         auto* sub = new QWidget;
         auto* subnav = new QGridLayout(sub);
@@ -1119,10 +1107,6 @@ QWidget* StreamDock::buildInterface()
     compact->setChecked(store_.current.compact);
     connect(compact, &QCheckBox::toggled, this, [this](bool b){store_.current.compact=b;changeSettings();rebuild();});
     v->addWidget(compact);
-    auto* show = new StreamSwitch(uiText("Показывать статус в заголовке", "Show status in header"));
-    show->setChecked(store_.current.showStatus);
-    connect(show, &QCheckBox::toggled, this, [this](bool b){store_.current.showStatus=b;changeSettings();rebuild();});
-    v->addWidget(show);
     section(v,uiText("Длительность экрана результата", "Result screen duration"));
     auto* result = new QComboBox;
     result->addItem(uiText("30 секунд", "30 seconds"),30);

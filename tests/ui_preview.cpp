@@ -140,6 +140,20 @@ int main(int argc,char** argv) {
         return panel.grab().save(output+"/"+name+".png");
     };
     if(!save("01-home"))return 1;
+    auto* settingsShortcut=panel.findChild<QPushButton*>("SettingsShortcut");
+    if(!settingsShortcut)return 54;
+    settingsShortcut->click();pump();
+    bool foundConnect=false,foundMessage=false,foundInterface=false,foundDonations=false;
+    for(auto* button:panel.findChildren<QPushButton*>()) {
+        foundConnect|=button->text()==QString::fromUtf8("Связь");
+        foundMessage|=button->text()==QString::fromUtf8("Сообщение");
+        foundInterface|=button->text()==QString::fromUtf8("Интерфейс");
+        foundDonations|=button->text()==QString::fromUtf8("Донаты");
+    }
+    if(!foundConnect||!foundMessage||!foundInterface||!foundDonations)return 55;
+    settingsShortcut=panel.findChild<QPushButton*>("SettingsShortcut");
+    settingsShortcut->click();pump();
+    if(panel.findChild<QPushButton*>("SettingsShortcut")==nullptr)return 56;
     const QSize homeSize=panel.size();
     auto* manualShortcut=panel.findChild<QPushButton*>("ManualMessageShortcut");
     if(!manualShortcut)return 44;
