@@ -15,6 +15,7 @@ struct StreamPreviewOutput {
     bool network;bool active;
     bool reconnecting=false;uint64_t bytes=0,frames=0,dropped=0;double targetKbps=6000;
     QString name,platform;
+    quintptr id=0;
 };
 inline std::vector<StreamPreviewOutput> streamPreviewOutputs;
 inline bool streamPreviewLive(){return streamPreviewBuiltinLive;}
@@ -46,3 +47,4 @@ inline void streamPreviewFree(void* pointer){std::free(pointer);}
 #define obs_enum_outputs streamPreviewEnum
 #define obs_output_get_flags streamPreviewFlags
 #define obs_output_active streamPreviewActive
+

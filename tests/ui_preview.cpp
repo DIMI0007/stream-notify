@@ -41,8 +41,8 @@ struct DockPreview {
         panel.telemetryTimer_.stop();panel.streamStateTimer_.stop();
         panel.monitor_.clear();
         streamPreviewOutputs.clear();
-        StreamPreviewOutput youtube{true,true};youtube.name="Aitum YouTube";youtube.platform="YouTube";
-        StreamPreviewOutput twitch{true,true};twitch.name="Aitum Twitch";twitch.platform="Twitch";
+        StreamPreviewOutput youtube{true,true};youtube.name="Aitum YouTube";youtube.platform="YouTube";youtube.id=1;
+        StreamPreviewOutput twitch{true,true};twitch.name="Aitum Twitch";twitch.platform="Twitch";twitch.id=2;
         streamPreviewOutputs={youtube,twitch};
         for(int64_t ms=0;ms<=30000;ms+=2000) {
             if(ms) {

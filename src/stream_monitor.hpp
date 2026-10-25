@@ -36,7 +36,7 @@ public:
         int index=0;
         for(const auto& item:streamPreviewOutputs) {
             ++index;if(!item.network)continue;
-            const auto key=quintptr(index);
+            const auto key=item.id?item.id:quintptr(index);
             seen_.insert(key);
             auto& entry=entries_[key];
             const OutputSample sample{item.active,item.reconnecting,item.bytes,item.frames,item.dropped,item.targetKbps};
