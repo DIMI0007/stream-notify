@@ -61,7 +61,7 @@
 </table>
 
 <details>
-<summary><b>Подключения, редактор анонса и результат отправки</b></summary>
+<summary><b>Подключения, ручное сообщение, редактор анонса и результат отправки</b></summary>
 
 <table>
 <tr>
@@ -69,6 +69,7 @@
 <td align="center" valign="top"><b>Текст анонса</b><br><a href="docs/screenshots/message.png"><img src="docs/screenshots/message.png" width="300" alt="Текст анонса — Stream Notify"></a><br>Редактор сообщения, задержка и предпросмотр.</td>
 </tr>
 <tr>
+<td align="center" valign="top"><b>Ручное сообщение</b><br><a href="docs/screenshots/manual-message.png"><img src="docs/screenshots/manual-message.png" width="300" alt="Ручное сообщение в Telegram и Discord — Stream Notify"></a><br>Отдельная страница с текстом, выбором каналов и переключателем @everyone.</td>
 <td align="center" valign="top"><b>Результат доставки</b><br><a href="docs/screenshots/result.png"><img src="docs/screenshots/result.png" width="300" alt="Результат доставки — Stream Notify"></a><br>Отдельный статус каждого канала и возврат к основной панели.</td>
 </tr>
 </table>
@@ -97,7 +98,7 @@
 
 Снимки получены из реально запущенного Qt-интерфейса. Главная обновлена по последней сборке. В окне используются тестовые выходы и демонстрационные адреса, без настоящих ключей и webhook. Показатели потоков и донаты на снимках заданы тестовыми событиями для демонстрации интерфейса; значения ресурсов измерены в тестовом окне и не являются оценкой нагрузки на вашем ПК.
 Экран успешной доставки показан на демонстрационных данных.
-[Полный набор снимков для разных размеров дока](https://github.com/DIMI0007/stream-notify/actions/runs/40127819775/artifacts/12574275164).
+[Полный набор снимков для разных размеров дока](https://github.com/DIMI0007/stream-notify/actions/runs/40171551955/artifacts/12590317512).
 
 
 <details>
