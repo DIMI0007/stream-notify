@@ -23,13 +23,14 @@ struct DockPreview {
         panel.announcementAttempted_=false;
         panel.page_=StreamDock::Page::Home;
         panel.rebuild();
+        QApplication::processEvents();
         bool waiting=false, staleSent=false;
         for(auto* label:panel.findChildren<QLabel*>()) {
             if(!label->property("announcementStatus").toBool())continue;
             waiting|=label->text()==QString::fromUtf8("Ожидание трансляции");
             staleSent|=label->text()==QString::fromUtf8("✓ Отправлен");
         }
-        panel.store_.current=original;panel.rebuild();
+        panel.store_.current=original;panel.rebuild();QApplication::processEvents();
         return waiting&&!staleSent;
     }
     static QVector<sn::OutputView> outputViews(const StreamDock& panel){return panel.monitor_.views();}
