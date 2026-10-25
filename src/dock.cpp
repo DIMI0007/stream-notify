@@ -4,6 +4,7 @@
 #include "telemetry_widgets.hpp"
 #include "resources.hpp"
 #include "telegram_channel.hpp"
+#include "discord_payload.hpp"
 #include <obs.h>
 #include <obs-frontend-api.h>
 #include <QPainter>
@@ -212,6 +213,7 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     setMinimumWidth(275);
     setStyleSheet(css);
     loadedCleanly_ = store_.load();
+    manualEveryoneSelected_=store_.current.discordEveryone;
     if (!loadedCleanly_) statusText_ = store_.error();
     connect(&store_, &SettingsStore::persisted, this, &StreamDock::updateSaved);
     countdown_.setInterval(1000);
@@ -568,7 +570,8 @@ QWidget* StreamDock::buildManualMessage()
     v->setSpacing(8);
     v->addWidget(label(uiText("СООБЩЕНИЕ ПОДПИСЧИКАМ", "MESSAGE TO SUBSCRIBERS"),"ManualEyebrow"));
     v->addWidget(label(uiText("Новое сообщение", "New message"),"ManualTitle"));
-    v->addWidget(label(uiText("Текст или ссылка · отправка без эфира", "Text or link · send without a stream"),"Hint"));
+    v->addWidget(label(uiText("Текст и ссылки для Telegram и Discord.\nЭфир не требуется.",
+        "Text and links for Telegram and Discord.\nNo stream required."),"Hint"));
     auto* editor=new QTextEdit(manualDraft_);
     editor->setObjectName("ManualMessageEditor");
     editor->setPlaceholderText(uiText("Напишите сообщение или вставьте ссылку…",
@@ -591,6 +594,13 @@ QWidget* StreamDock::buildManualMessage()
         recipients->addWidget(tile,1);
     };
     addRecipient("Telegram",tg);addRecipient("Discord",dc);v->addLayout(recipients);
+    auto* everyone=new QCheckBox(uiText("Тегнуть @everyone в Discord", "Mention @everyone in Discord"));
+    everyone->setObjectName("ManualEveryone");
+    everyone->setChecked(manualEveryoneSelected_);
+    everyone->setEnabled(dcReady&&dc->isChecked()&&!manualSending_);
+    everyone->setToolTip(uiText("Если включено, Discord получит упоминание @everyone. Настройка действует только для этого сообщения.",
+        "When enabled, Discord receives an @everyone mention. This choice applies to this message only."));
+    v->addWidget(everyone);
     if(!tgReady||!dcReady)v->addWidget(label(uiText(
         "Недоступный канал можно настроить в разделе «Настройки → Связь».",
         "Set up an unavailable channel under Settings → Connect."),"Hint"));
@@ -602,17 +612,21 @@ QWidget* StreamDock::buildManualMessage()
     send->setObjectName("ManualMessageSend");
     send->setIcon(streamNavIcon("send",true));send->setIconSize(QSize(17,17));
     v->addWidget(send);
-    auto updateForm=[this,editor,tg,dc,send,count]{
+    auto updateForm=[this,editor,tg,dc,everyone,send,count]{
         const bool chosen=tg->isChecked()||dc->isChecked();
         const int length=editor->toPlainText().size();
         const int limit=dc->isChecked()?2000:4096;
-        count->setText(QString("%1 / %2").arg(length).arg(limit));
-        count->setStyleSheet(length>limit?"color:#ff8f8f;":"color:#8da5bb;");
-        send->setEnabled(!manualSending_&&chosen&&!editor->toPlainText().trimmed().isEmpty()&&length<=limit);
+        const int outgoingLength=dc->isChecked()?discordContent(editor->toPlainText(),everyone->isChecked()).size():length;
+        count->setText(QString("%1 / %2").arg(outgoingLength).arg(limit));
+        count->setStyleSheet(outgoingLength>limit?"color:#ff8f8f;":"color:#8da5bb;");
+        everyone->setEnabled(dc->isChecked()&&dc->isEnabled()&&!manualSending_);
+        const bool fits=dc->isChecked()?discordPayload(editor->toPlainText(),everyone->isChecked()).has_value():length<=4096;
+        send->setEnabled(!manualSending_&&chosen&&!editor->toPlainText().trimmed().isEmpty()&&fits);
     };
     connect(editor,&QTextEdit::textChanged,this,[this,editor,updateForm]{manualDraft_=editor->toPlainText();updateForm();});
     connect(tg,&QCheckBox::toggled,this,[this,updateForm](bool checked){manualTelegramSelected_=checked;updateForm();});
     connect(dc,&QCheckBox::toggled,this,[this,updateForm](bool checked){manualDiscordSelected_=checked;updateForm();});
+    connect(everyone,&QCheckBox::toggled,this,[this,updateForm](bool checked){manualEveryoneSelected_=checked;updateForm();});
     connect(send,&QPushButton::clicked,this,&StreamDock::sendManualMessage);
     editor->setReadOnly(manualSending_);updateForm();
     outer->addWidget(compose);
@@ -633,11 +647,12 @@ void StreamDock::sendManualMessage()
     const bool tg=manualTelegramSelected_&&validTelegram(store_.current.telegramToken,store_.current.telegramChat);
     const bool dc=manualDiscordSelected_&&validDiscord(store_.current.discordWebhook);
     const QString message=manualDraft_;
-    if((!tg&&!dc)||message.trimmed().isEmpty()||message.size()>(dc?2000:4096))return;
+    if((!tg&&!dc)||message.trimmed().isEmpty()||
+       (dc?!discordPayload(message,manualEveryoneSelected_).has_value():message.size()>4096))return;
     Snapshot snap;
     snap.token=store_.current.telegramToken;snap.chat=store_.current.telegramChat;
     snap.webhook=store_.current.discordWebhook;
-    snap.discordEveryone=false; // Manual text never adds an automatic mass mention.
+    snap.discordEveryone=dc&&manualEveryoneSelected_;
     manualSending_=true;manualAllSent_=true;manualPending_=int(tg)+int(dc);
     manualTelegramStatus_=tg?uiText("Отправка…","Sending…"):QString();
     manualDiscordStatus_=dc?uiText("Отправка…","Sending…"):QString();
@@ -766,7 +781,7 @@ QWidget* StreamDock::buildConnections()
     everyone->setToolTip(uiText("Добавлять @everyone в конец сообщений Discord: анонсы, донаты и ручные тесты.",
         "Append @everyone to Discord messages: stream announcements, donations and manual tests."));
     connect(everyone,&QCheckBox::toggled,this,[this](bool checked){
-        store_.current.discordEveryone=checked;changeSettings();
+        store_.current.discordEveryone=checked;manualEveryoneSelected_=checked;changeSettings();
     });
     v->addWidget(everyone);
 

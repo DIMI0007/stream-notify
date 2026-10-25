@@ -62,6 +62,7 @@ private:
     QString manualDiscordStatus_;
     bool manualTelegramSelected_ = true;
     bool manualDiscordSelected_ = true;
+    bool manualEveryoneSelected_ = false;
     bool manualSending_ = false;
     bool manualAllSent_ = false;
     int manualPending_ = 0;

@@ -146,7 +146,8 @@ int main(int argc,char** argv) {
     manualShortcut->click();pump();
     auto* manualEditor=panel.findChild<QTextEdit*>("ManualMessageEditor");
     if(!manualEditor || !panel.findChild<QCheckBox*>("ManualTelegram") ||
-       !panel.findChild<QCheckBox*>("ManualDiscord") || panel.size()!=homeSize)return 45;
+       !panel.findChild<QCheckBox*>("ManualDiscord") ||
+       !panel.findChild<QCheckBox*>("ManualEveryone") || panel.size()!=homeSize)return 45;
     if(!save("18-manual-message"))return 49;
     manualEditor->setPlainText(QString::fromUtf8("Анонс и ссылка: https://example.com"));pump();
     auto* manualBack=panel.findChild<QPushButton*>("ManualMessageBack");
@@ -212,6 +213,16 @@ int main(int argc,char** argv) {
     if(!save("07-donations-bottom"))return 1;
     if(!DockPreview::donationIdleStates(panel))return 33;
     const Settings originalSettings=DockPreview::demoConnections(panel);pump();
+    manualShortcut=panel.findChild<QPushButton*>("ManualMessageShortcut");
+    if(!manualShortcut)return 50;
+    manualShortcut->click();pump();
+    auto* mention=panel.findChild<QCheckBox*>("ManualEveryone");
+    if(!mention || !mention->isEnabled())return 51;
+    mention->setChecked(true);pump();
+    if(!save("19-manual-ready"))return 52;
+    manualBack=panel.findChild<QPushButton*>("ManualMessageBack");
+    if(!manualBack)return 53;
+    manualBack->click();pump();
     QList<QPointer<QTimer>> readyTimers;
     for(auto* timer:panel.findChildren<QTimer*>())
         if(timer->objectName()=="ReadyBlinkTimer")readyTimers.append(timer);

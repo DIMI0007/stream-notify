@@ -11,6 +11,9 @@ int main() {
         on->value("allowed_mentions").toObject().value("parse").toArray()==QJsonArray{"everyone"}))return 3;
     const auto existing=discordPayload(text+"\n@everyone",true);
     if(!check(existing && existing->value("content")==on->value("content")))return 4;
+    const auto manual=discordPayload(QString::fromUtf8("Первая строка\nВторая строка\n@everyone"),true);
+    if(!check(manual && manual->value("content").toString().contains(QString::fromUtf8("Первая строка\nВторая строка")) &&
+        manual->value("allowed_mentions").toObject().value("parse").toArray()==QJsonArray{"everyone"}))return 7;
     const auto here=discordPayload("Hello @here",true);
     if(!check(here&&!here->value("content").toString().contains("@here")))return 5;
     if(!check(discordPayload(QString(1989,'a'),true).has_value() &&
