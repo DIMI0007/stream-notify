@@ -14,6 +14,24 @@
 #include <QLineEdit>
 #include <iostream>
 struct DockPreview {
+    static bool ignoresSavedAnnouncementAtStartup(StreamDock& panel) {
+        const Settings original=panel.store_.current;
+        panel.store_.current.lastTime="2026-10-24 16:00:24";
+        panel.store_.current.lastTelegram=QString::fromUtf8("✓ Отправлено");
+        panel.store_.current.lastDiscord=QString::fromUtf8("✓ Отправлено");
+        panel.broadcasting_=false;
+        panel.announcementAttempted_=false;
+        panel.page_=StreamDock::Page::Home;
+        panel.rebuild();
+        bool waiting=false, staleSent=false;
+        for(auto* label:panel.findChildren<QLabel*>()) {
+            if(!label->property("announcementStatus").toBool())continue;
+            waiting|=label->text()==QString::fromUtf8("Ожидание трансляции");
+            staleSent|=label->text()==QString::fromUtf8("✓ Отправлен");
+        }
+        panel.store_.current=original;panel.rebuild();
+        return waiting&&!staleSent;
+    }
     static QVector<sn::OutputView> outputViews(const StreamDock& panel){return panel.monitor_.views();}
     static bool live(const StreamDock& panel){return panel.broadcasting_;}
     static quint64 session(const StreamDock& panel){return panel.generation_;}
@@ -108,6 +126,7 @@ int main(int argc,char** argv) {
     const int width=argc>2?QString::fromLocal8Bit(argv[2]).toInt():290;
     const int height=argc>3?QString::fromLocal8Bit(argv[3]).toInt():900;
     StreamDock panel;panel.resize(width,height);panel.show();pump();
+    if(!DockPreview::ignoresSavedAnnouncementAtStartup(panel))return 43;
     auto click=[&](const QString& text) {
         for(auto* button:panel.findChildren<QPushButton*>())
             if(button->text().contains(text) && button->isEnabled()){button->click();pump();return true;}
@@ -178,7 +197,7 @@ int main(int argc,char** argv) {
     for(auto* timer:panel.findChildren<QTimer*>())
         if(timer->objectName()=="ReadyBlinkTimer")readyTimers.append(timer);
     if(readyTimers.size()!=2)return 34;
-    for(const auto& timer:readyTimers)if(!timer || !timer->isActive())return 35;
+    for(const auto& timer:readyTimers)if(!timer || !timer->isActive() || timer->interval()!=2770)return 35;
     if(!save("15-home-ready"))return 1;
     panel.hide();pump();for(const auto& timer:readyTimers)if(timer->isActive())return 36;
     panel.show();pump();for(const auto& timer:readyTimers)if(!timer->isActive())return 37;

@@ -488,15 +488,19 @@ QWidget* StreamDock::buildHome()
     auto* delivery=card(&v);section(v,uiText("Отправка анонса","Stream announcement"));
     const bool sentNow=telegram_.status==Outcome::Sent || discord_.status==Outcome::Sent;
     const bool cancelled=telegram_.status==Outcome::Cancelled || discord_.status==Outcome::Cancelled;
-    const bool historySent=store_.current.lastTelegram.startsWith(QString::fromUtf8("✓")) ||
-        store_.current.lastDiscord.startsWith(QString::fromUtf8("✓"));
-    const bool sent=broadcasting_?(announcementAttempted_&&sentNow):historySent;
-    QString outcome=sent?uiText("✓ Отправлен","✓ Sent"):
+    // Persisted delivery history belongs in the tooltip, not the current session status.
+    // Otherwise yesterday's successful announcement looks freshly sent on OBS startup.
+    const bool sent=announcementAttempted_&&sentNow;
+    QString outcome=sent?(broadcasting_?uiText("✓ Отправлен","✓ Sent"):
+        uiText("Последний анонс: ✓ отправлен","Last announcement: ✓ sent")):
         broadcasting_&&cancelled?uiText("Отправка отменена","Cancelled"):
         broadcasting_&&announcementAttempted_?uiText("Доставка не подтверждена","Delivery unconfirmed"):
-        !broadcasting_&&!store_.current.lastTime.isEmpty()?uiText("Последняя попытка без подтверждения","Last delivery unconfirmed"):
-        uiText("Ещё не отправляли","Not sent yet");
-    v->addWidget(label(outcome,sent?"Good":"Hint"));
+        !broadcasting_&&announcementAttempted_?uiText("Последний анонс: доставка не подтверждена","Last announcement: delivery unconfirmed"):
+        broadcasting_?uiText("Ещё не отправляли","Not sent yet"):
+        uiText("Ожидание трансляции","Waiting for stream");
+    auto* announcementStatus=label(outcome,sent?"Good":"Hint");
+    announcementStatus->setProperty("announcementStatus",true);
+    v->addWidget(announcementStatus);
     delivery->setToolTip(store_.current.lastTime+"\nTelegram: "+store_.current.lastTelegram+"\nDiscord: "+store_.current.lastDiscord+"\n"+statusText_);
     outer->addWidget(delivery);
 

@@ -240,14 +240,14 @@ public:
         setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Fixed);
         blink_.setParent(this);blink_.setObjectName("ReadyBlinkTimer");blink_.setSingleShot(true);
         connect(&blink_,&QTimer::timeout,this,[this] {
-            dim_=!dim_;update(QRect(0,0,12,height()));
-            blink_.start(dim_?400:3600);
+            dim_=!dim_;update();
+            blink_.start(dim_?310:2770);
         });
     }
     QSize sizeHint() const override {return QSize(fontMetrics().horizontalAdvance(text_)+15,18);}
 protected:
     void showEvent(QShowEvent* event) override {
-        QWidget::showEvent(event);dim_=false;blink_.start(3600);
+        QWidget::showEvent(event);dim_=false;blink_.start(2770);
     }
     void hideEvent(QHideEvent* event) override {
         blink_.stop();dim_=false;QWidget::hideEvent(event);
@@ -257,7 +257,8 @@ protected:
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         QColor green("#00df8c");green.setAlpha(dim_?100:255);
         p.setPen(Qt::NoPen);p.setBrush(green);p.drawEllipse(QPointF(4,height()/2.0),3,3);
-        p.setPen(QColor("#9baccc"));p.setFont(font());
+        QColor textColor("#9baccc");textColor.setAlpha(dim_?175:255);
+        p.setPen(textColor);p.setFont(font());
         p.drawText(QRect(13,0,std::max(0,width()-13),height()),Qt::AlignVCenter|Qt::AlignLeft,text_);
     }
 private:
