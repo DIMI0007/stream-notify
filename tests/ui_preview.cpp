@@ -147,6 +147,7 @@ int main(int argc,char** argv) {
     auto* manualEditor=panel.findChild<QTextEdit*>("ManualMessageEditor");
     if(!manualEditor || !panel.findChild<QCheckBox*>("ManualTelegram") ||
        !panel.findChild<QCheckBox*>("ManualDiscord") || panel.size()!=homeSize)return 45;
+    if(!save("18-manual-message"))return 49;
     manualEditor->setPlainText(QString::fromUtf8("Анонс и ссылка: https://example.com"));pump();
     auto* manualBack=panel.findChild<QPushButton*>("ManualMessageBack");
     if(!manualBack)return 46;

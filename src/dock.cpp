@@ -62,6 +62,16 @@ QPushButton#ActiveNav { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #
 QPushButton#DonationTab {font-size:11px;min-height:18px;padding:3px 4px;background:#0d1824;border:0;border-bottom:2px solid #243246;border-radius:4px;}
 QPushButton#DonationTab[selected="true"] {color:#b8ffe1;background:#102c29;border-bottom-color:#00d58a;}
 QPushButton#Cancel { background: #16395b; border-color: #40b7ff; font-weight: 700; min-height: 28px; }
+QPushButton#ManualMessageBack { background:transparent; border:0; color:#91a9c8; text-align:left; padding:2px 4px; }
+QPushButton#ManualMessageBack:hover { color:#e7f3ff; background:#18283b; }
+QLabel#ManualTitle { color:#f1f7ff; font-size:16px; font-weight:800; }
+QLabel#ManualEyebrow { color:#4ce9b1; font-size:10px; font-weight:750; }
+QWidget#ManualRecipient { background:#111f2d; border:1px solid #304a5d; border-radius:8px; }
+QTextEdit#ManualMessageEditor { background:#091723; border:1px solid #3a6071; border-radius:8px; padding:8px; font-size:13px; }
+QTextEdit#ManualMessageEditor:focus { border:1px solid #35cfad; background:#0c1b29; }
+QPushButton#ManualMessageSend { color:#061c20; font-weight:800; min-height:30px; background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #51efaa,stop:1 #34cce9); border:1px solid #7fffd0; }
+QPushButton#ManualMessageSend:hover { background:#8af9d0; border-color:#c7ffea; }
+QPushButton#ManualMessageSend:disabled { color:#71879b; background:#1a2b39; border:1px solid #314251; }
 QLineEdit,QTextEdit,QComboBox,QDoubleSpinBox { color: #e7eeff; background: #0c1420; border: 1px solid #344865; border-radius: 6px; padding: 4px; selection-background-color: #316ac4; }
 QComboBox QAbstractItemView { background: #101a2b; color: #e7eeff; }
 QCheckBox { color: #dce7fb; spacing: 6px; min-height: 20px; }
@@ -549,19 +559,21 @@ QWidget* StreamDock::buildManualMessage()
     auto* outer=column(body,8,3);
     auto* back=btn(uiText("← Назад на основное", "← Back to Home"));
     back->setObjectName("ManualMessageBack");
+    back->setSizePolicy(QSizePolicy::Maximum,QSizePolicy::Fixed);
     connect(back,&QPushButton::clicked,this,[this]{showPage(Page::Home);});
     outer->addWidget(back);
 
     QVBoxLayout* v;
     auto* compose=card(&v);
-    section(v,uiText("Ручное сообщение", "Manual message"));
-    v->addWidget(label(uiText("Текст и ссылки для Telegram и Discord. Эфир не требуется.",
-        "Text and links for Telegram and Discord. No stream required."),"Hint"));
+    v->setSpacing(8);
+    v->addWidget(label(uiText("СООБЩЕНИЕ ПОДПИСЧИКАМ", "MESSAGE TO SUBSCRIBERS"),"ManualEyebrow"));
+    v->addWidget(label(uiText("Новое сообщение", "New message"),"ManualTitle"));
+    v->addWidget(label(uiText("Текст или ссылка · отправка без эфира", "Text or link · send without a stream"),"Hint"));
     auto* editor=new QTextEdit(manualDraft_);
     editor->setObjectName("ManualMessageEditor");
     editor->setPlaceholderText(uiText("Напишите сообщение или вставьте ссылку…",
         "Write a message or paste a link…"));
-    editor->setMinimumHeight(150);
+    editor->setFixedHeight(142);
     v->addWidget(editor);
     const bool tgReady=validTelegram(store_.current.telegramToken,store_.current.telegramChat);
     const bool dcReady=validDiscord(store_.current.discordWebhook);
@@ -570,19 +582,32 @@ QWidget* StreamDock::buildManualMessage()
     tg->setEnabled(tgReady&&!manualSending_);dc->setEnabled(dcReady&&!manualSending_);
     tg->setChecked(tgReady&&manualTelegramSelected_);
     dc->setChecked(dcReady&&manualDiscordSelected_);
-    auto* recipients=new QHBoxLayout;recipients->addWidget(tg);recipients->addWidget(dc);v->addLayout(recipients);
+    v->addWidget(label(uiText("ПОЛУЧАТЕЛИ", "RECIPIENTS"),"ManualEyebrow"));
+    auto* recipients=new QHBoxLayout;recipients->setSpacing(6);
+    auto addRecipient=[&](const QString& name,QCheckBox* check){
+        auto* tile=new QWidget;tile->setObjectName("ManualRecipient");
+        auto* row=new QHBoxLayout(tile);row->setContentsMargins(7,4,6,4);row->setSpacing(5);
+        row->addWidget(new ServiceBadge(name));row->addWidget(check,1);
+        recipients->addWidget(tile,1);
+    };
+    addRecipient("Telegram",tg);addRecipient("Discord",dc);v->addLayout(recipients);
     if(!tgReady||!dcReady)v->addWidget(label(uiText(
         "Недоступный канал можно настроить в разделе «Настройки → Связь».",
         "Set up an unavailable channel under Settings → Connect."),"Hint"));
-    auto* count=label(QString(),"Hint");v->addWidget(count);
-    auto* send=btn(uiText("Отправить выбранным", "Send to selected"));
+    auto* meta=new QHBoxLayout;meta->setContentsMargins(0,0,0,0);
+    meta->addWidget(label(uiText("Отправится сразу", "Sends immediately"),"Hint"),1);
+    auto* count=label(QString(),"Hint");count->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+    meta->addWidget(count);v->addLayout(meta);
+    auto* send=btn(uiText("Отправить сообщение", "Send message"));
     send->setObjectName("ManualMessageSend");
+    send->setIcon(streamNavIcon("send",true));send->setIconSize(QSize(17,17));
     v->addWidget(send);
     auto updateForm=[this,editor,tg,dc,send,count]{
         const bool chosen=tg->isChecked()||dc->isChecked();
         const int length=editor->toPlainText().size();
         const int limit=dc->isChecked()?2000:4096;
-        count->setText(uiText("Символов: %1 / %2", "Characters: %1 / %2").arg(length).arg(limit));
+        count->setText(QString("%1 / %2").arg(length).arg(limit));
+        count->setStyleSheet(length>limit?"color:#ff8f8f;":"color:#8da5bb;");
         send->setEnabled(!manualSending_&&chosen&&!editor->toPlainText().trimmed().isEmpty()&&length<=limit);
     };
     connect(editor,&QTextEdit::textChanged,this,[this,editor,updateForm]{manualDraft_=editor->toPlainText();updateForm();});
