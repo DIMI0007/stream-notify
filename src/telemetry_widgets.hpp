@@ -88,8 +88,8 @@ public:
         auto* info=new QToolButton;info->setIcon(streamNavIcon("info"));info->setIconSize(QSize(16,16));info->setFixedSize(18,18);
         info->setStyleSheet("QToolButton{border:0;background:transparent;}");info->setCursor(Qt::WhatsThisCursor);
         info->setToolTip(phrase(ru_,
-            "CPU — время отмеченных синхронных участков кода плагина по GetThreadTimes, с учётом числа ядер. Фоновые задачи Qt/ОС отдельно не атрибутируются. Память — ёмкость учтённых строк и буферов с устранением общих копий; это не полная RAM DLL, Qt или OBS. Сеть — данные HTTP/WS плагина, без TLS/TCP-заголовков и трафика стрима.",
-            "CPU: instrumented synchronous plugin code via GetThreadTimes, normalized by CPU cores; shared Qt/OS background work is not attributed. Memory: deduplicated retained text/buffer capacity, not total DLL/Qt/OBS RAM. Network: plugin HTTP/WS data, excluding TLS/TCP overhead and stream traffic."));
+            "CPU — время отмеченных синхронных участков кода плагина по GetThreadTimes, с учётом числа ядер. Фоновые задачи Qt/ОС отдельно не атрибутируются. Память — ёмкость учтённых строк и буферов с устранением общих копий; это не полная RAM DLL, Qt или OBS. Трафик за сеанс — данные HTTP/WS плагина с момента запуска OBS, без TLS/TCP-заголовков и трафика стрима.",
+            "CPU: instrumented synchronous plugin code via GetThreadTimes, normalized by CPU cores; shared Qt/OS background work is not attributed. Memory: deduplicated retained text/buffer capacity, not total DLL/Qt/OBS RAM. Session traffic: plugin HTTP/WS data since OBS started, excluding TLS/TCP overhead and stream traffic."));
         info->setAccessibleName(phrase(ru_,"Что измеряется","What is measured"));headingRow->addWidget(info);
         cpu_=text("—");memory_=text("—");cpu_->setStyleSheet("font-weight:600;color:#dfe8ff;");memory_->setStyleSheet(cpu_->styleSheet());
         auto makeMetric=[&](const QString& caption,QLabel* value){
@@ -99,7 +99,9 @@ public:
         };
         grid->addWidget(makeMetric(phrase(ru_,"CPU","CPU"),cpu_),1,0);
         grid->addWidget(makeMetric(phrase(ru_,"Память данных","Data memory"),memory_),1,1);
-        grid->addWidget(text(phrase(ru_,"Сеть","Network")),2,0);
+        auto* trafficCaption=text(phrase(ru_,"Трафик за сеанс","Session traffic"));
+        trafficCaption->setStyleSheet("font-size:10px;color:#8ea1c0;");
+        grid->addWidget(trafficCaption,2,0);
         network_=text("—");network_->setAlignment(Qt::AlignRight);network_->setStyleSheet("color:#72e9f4;font-size:10px;");grid->addWidget(network_,2,1);
         grid->setColumnStretch(0,1);grid->setColumnStretch(1,1);
     }
@@ -108,9 +110,10 @@ public:
         cpu_->setText(!usage.cpuAvailable?"—":!usage.ready?phrase(ru_,"Измерение…","Measuring…"):
             usage.cpuPercent<0.01?phrase(ru_,"<0,01 %","<0.01 %"):locale.toString(usage.cpuPercent,'f',2)+" %");
         memory_->setText(usage.buffers?volume(double(usage.buffers),ru_):"—");
-        network_->setText(usage.ready?QString::fromUtf8("↑ ")+volume(usage.txPerSec,ru_)+phrase(ru_,"/с","/s")+
-            QString::fromUtf8("  ↓ ")+volume(usage.rxPerSec,ru_)+phrase(ru_,"/с","/s"):"—");
+        network_->setText(QString::fromUtf8("↑ ")+volume(double(usage.txTotal),ru_)+
+            QString::fromUtf8("  ↓ ")+volume(double(usage.rxTotal),ru_));
     }
 private:bool ru_;QLabel *cpu_,*memory_,*network_;
 };
 }
+

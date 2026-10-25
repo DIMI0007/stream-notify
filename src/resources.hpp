@@ -80,13 +80,14 @@ inline void accountReply(BufferCensus& c,QNetworkReply* reply) {
 
 struct Usage {
     bool ready=false,cpuAvailable=false;double cpuPercent=0,txPerSec=0,rxPerSec=0;
-    uint64_t buffers=0;
+    uint64_t buffers=0,txTotal=0,rxTotal=0;
 };
 class UsageSampler {
 public:
     Usage sample(uint64_t buffers) {
         const auto next=Meter::instance().totals();uint64_t ignored=0;
-        Usage result;result.buffers=buffers;result.cpuAvailable=Meter::threadTime(ignored);
+        Usage result;result.buffers=buffers;result.txTotal=next.tx;result.rxTotal=next.rx;
+        result.cpuAvailable=Meter::threadTime(ignored);
         if(clock_.isValid()) {
             const auto ns=clock_.nsecsElapsed();
             if(ns>0) {
@@ -118,3 +119,4 @@ inline QNetworkReply* watchReply(QNetworkReply* reply,const QByteArray& upload={
     return reply;
 }
 }
+
