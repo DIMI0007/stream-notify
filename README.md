@@ -1,4 +1,10 @@
-# Stream Notify
+<div align="center">
+<h1>Stream Notify</h1>
+<p><strong>Запускаете эфир — зрители получают ссылки.</strong></p>
+<p><strong>Русский</strong> · <a href="docs/README_EN.md">English</a></p>
+<p><img alt="OBS 33.0.0" src="https://img.shields.io/badge/OBS-33.0.0-302E31"> <img alt="Windows x64" src="https://img.shields.io/badge/Windows-x64-0078D4"> <img alt="Нативный Qt" src="https://img.shields.io/badge/UI-native_Qt-00B88C"></p>
+</div>
+
 
 **Запускаете эфир — зрители получают ссылки.**
 
@@ -7,6 +13,18 @@
 [**Скачать последнюю сборку для Windows**](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml) ·
 [Установить или обновить](docs/TEST_WINDOWS_RU.md) ·
 [Все сборки](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml)
+
+## Статус готовности
+
+| Возможность | Что подтверждено |
+| --- | --- |
+| Автоанонс в Telegram и Discord | Пользователь проверил доставку при настоящем эфире на восстановленной предыдущей сборке. |
+| Статистика завершённых потоков и версия 1.0.1 | Изменения реализованы; результат CI относится к конкретному commit, проверка в OBS проводится после установки. |
+| Вход в DonationAlerts через браузер | Реализован, проверка на реальном аккаунте ещё предстоит. |
+| DonatePay | Официальный HTTP API отвечает с правильным ключом. Подключение и подписка WebSocket проверены отдельно; приём нового реального доната ещё не подтверждён. |
+| Подпись сборок | Заявка SignPath получена сервисом, одобрения пока нет. Текущие артефакты CI не подписаны. |
+
+**Тестовый архив может блокироваться Windows Smart App Control.** Успешная сборка не заменяет проверку загрузки в OBS и получение настоящего события. Версия и commit новых пакетов указаны в `BUILD_INFO.json`.
 
 ## Чем полезен стримеру
 
@@ -176,3 +194,4 @@ developed by [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfy
 ## License
 
 Собственный код Stream Notify распространяется под GNU General Public License version 2 (GPL-2.0-only); полный текст — [LICENSE](LICENSE). Исходная лицензия шаблона OBS сохранена в [LICENSE.obs-plugintemplate](LICENSE.obs-plugintemplate). Сторонние компоненты сохраняют свои лицензии и уведомления.
+
