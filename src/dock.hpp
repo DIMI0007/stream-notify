@@ -29,12 +29,13 @@ public:
     bool wasLoadedCleanly() const { return loadedCleanly_; }
 private:
     enum class Phase { Idle, Counting, Sending, Result, Cancelled };
-    enum class Page { Home, Connections, Message, Interface, Donations };
+    enum class Page { Home, Connections, Message, Interface, Donations, ManualMessage };
     enum class DonationPage { Services, Delivery, Amounts, Templates };
     DonationPage donationPage_ = DonationPage::Services;
     SettingsStore store_;
     Sender sender_;
     Sender testSender_;
+    Sender manualSender_;
     DonationEngine donation_;
     QTimer donationConfigure_;
     Phase phase_ = Phase::Idle;
@@ -56,6 +57,14 @@ private:
     QString pendingFocus_;
     QString transientTelegram_;
     QString transientDiscord_;
+    QString manualDraft_;
+    QString manualTelegramStatus_;
+    QString manualDiscordStatus_;
+    bool manualTelegramSelected_ = true;
+    bool manualDiscordSelected_ = true;
+    bool manualSending_ = false;
+    bool manualAllSent_ = false;
+    int manualPending_ = 0;
     bool testingTelegram_ = false;
     bool testingDiscord_ = false;
 
@@ -84,6 +93,8 @@ private:
     bool rebuildPending_ = false;
     QWidget* buildRegular();
     QWidget* buildHome();
+    QWidget* buildManualMessage();
+    void sendManualMessage();
     QString donationSummaryText() const;
     QWidget* buildConnections();
     QWidget* buildMessage();

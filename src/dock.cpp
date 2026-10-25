@@ -91,6 +91,8 @@ QString serviceStatus(const QString& value,bool russian) {
         {"API verification required",QString::fromUtf8("API требует проверки")},
         {"API responded (legacy, unverified)",QString::fromUtf8("API ответил — экспериментальный режим")},
         {"Invalid or expired token",QString::fromUtf8("Токен недействителен или истёк")},
+        {"Invalid token format",QString::fromUtf8("Неверный формат OAuth-токена")},
+        {"Unrecognized API response",QString::fromUtf8("Ответ API не распознан — проверьте ключ и метод")},
         {"Rate limited",QString::fromUtf8("Лимит запросов — подождите")},
         {"Network error",QString::fromUtf8("Ошибка соединения")},
         {"Journal error",QString::fromUtf8("Ошибка журнала")},
@@ -193,7 +195,7 @@ private:
     bool hover_=false;
 };
 
-StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_(this), testSender_(this), donation_(&store_,this)
+StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_(this), testSender_(this), manualSender_(this), donation_(&store_,this)
 {
     setObjectName("StreamRoot");
     setAttribute(Qt::WA_StyledBackground,true);
@@ -319,6 +321,15 @@ void StreamDock::rebuildNow()
     auto* t = label("Stream Notify", "Title");
     title_ = t;
     h->addWidget(t, 1);
+    auto* manualButton=btn(QString());
+    manualButton->setObjectName("ManualMessageShortcut");
+    manualButton->setIcon(streamNavIcon("send",page_==Page::ManualMessage));
+    manualButton->setIconSize(QSize(19,19));
+    manualButton->setFixedSize(30,28);
+    manualButton->setToolTip(uiText("Отправить сообщение", "Send a message"));
+    manualButton->setAccessibleName(manualButton->toolTip());
+    connect(manualButton,&QPushButton::clicked,this,[this]{showPage(Page::ManualMessage);});
+    h->addWidget(manualButton);
     if(store_.current.showStatus) {
         auto* status=new ActivityBadge(store_.current.enabled?uiText("Активен","Active"):uiText("Выключен","Disabled"),store_.current.enabled);
         status->setToolTip(store_.current.enabled
@@ -329,7 +340,7 @@ void StreamDock::rebuildNow()
     }
     root_->addWidget(header);
 
-    if (phase_ == Phase::Idle) central_ = buildRegular();
+    if (phase_ == Phase::Idle || page_ == Page::ManualMessage) central_ = buildRegular();
     else if (phase_ == Phase::Counting) central_ = buildCountdown();
     else if (phase_ == Phase::Sending) central_ = buildSending();
     else if (phase_ == Phase::Result) central_ = buildResult();
@@ -368,6 +379,15 @@ QWidget* StreamDock::buildRegular()
     sn::CpuScope snCpuScope;
     auto* wrap = new QWidget;
     auto* vertical = column(wrap, 6, 0);
+    if(page_==Page::ManualMessage) {
+        auto* scroll=new QScrollArea;
+        scroll->setWidgetResizable(true);
+        scroll->viewport()->setObjectName("ScrollViewport");
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        auto* body=buildManualMessage();body->setObjectName("PageBody");
+        scroll->setWidget(body);vertical->addWidget(scroll,1);
+        return wrap;
+    }
     auto* tabs = new QWidget;
     auto* nav = new QHBoxLayout(tabs);
     nav->setContentsMargins(0,0,0,0);
@@ -439,6 +459,7 @@ QWidget* StreamDock::buildRegular()
         case Page::Message: body = buildMessage(); break;
         case Page::Interface: body = buildInterface(); break;
         case Page::Donations: body = buildDonations(); break;
+        case Page::ManualMessage: body = buildManualMessage(); break;
     }
     body->setObjectName("PageBody");
     scroll->setWidget(body);
@@ -519,6 +540,103 @@ QWidget* StreamDock::buildHome()
     resources->setStyleSheet("QWidget#PluginResources{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
     resources->setUsage(usage_);resourcePanel_=resources;outer->addWidget(resources);
     outer->addStretch();return body;
+}
+
+QWidget* StreamDock::buildManualMessage()
+{
+    sn::CpuScope snCpuScope;
+    auto* body=new QWidget;
+    auto* outer=column(body,8,3);
+    auto* back=btn(uiText("← Назад на основное", "← Back to Home"));
+    back->setObjectName("ManualMessageBack");
+    connect(back,&QPushButton::clicked,this,[this]{showPage(Page::Home);});
+    outer->addWidget(back);
+
+    QVBoxLayout* v;
+    auto* compose=card(&v);
+    section(v,uiText("Ручное сообщение", "Manual message"));
+    v->addWidget(label(uiText("Текст и ссылки для Telegram и Discord. Эфир не требуется.",
+        "Text and links for Telegram and Discord. No stream required."),"Hint"));
+    auto* editor=new QTextEdit(manualDraft_);
+    editor->setObjectName("ManualMessageEditor");
+    editor->setPlaceholderText(uiText("Напишите сообщение или вставьте ссылку…",
+        "Write a message or paste a link…"));
+    editor->setMinimumHeight(150);
+    v->addWidget(editor);
+    const bool tgReady=validTelegram(store_.current.telegramToken,store_.current.telegramChat);
+    const bool dcReady=validDiscord(store_.current.discordWebhook);
+    auto* tg=new QCheckBox("Telegram");tg->setObjectName("ManualTelegram");
+    auto* dc=new QCheckBox("Discord");dc->setObjectName("ManualDiscord");
+    tg->setEnabled(tgReady&&!manualSending_);dc->setEnabled(dcReady&&!manualSending_);
+    tg->setChecked(tgReady&&manualTelegramSelected_);
+    dc->setChecked(dcReady&&manualDiscordSelected_);
+    auto* recipients=new QHBoxLayout;recipients->addWidget(tg);recipients->addWidget(dc);v->addLayout(recipients);
+    if(!tgReady||!dcReady)v->addWidget(label(uiText(
+        "Недоступный канал можно настроить в разделе «Настройки → Связь».",
+        "Set up an unavailable channel under Settings → Connect."),"Hint"));
+    auto* count=label(QString(),"Hint");v->addWidget(count);
+    auto* send=btn(uiText("Отправить выбранным", "Send to selected"));
+    send->setObjectName("ManualMessageSend");
+    v->addWidget(send);
+    auto updateForm=[this,editor,tg,dc,send,count]{
+        const bool chosen=tg->isChecked()||dc->isChecked();
+        const int length=editor->toPlainText().size();
+        const int limit=dc->isChecked()?2000:4096;
+        count->setText(uiText("Символов: %1 / %2", "Characters: %1 / %2").arg(length).arg(limit));
+        send->setEnabled(!manualSending_&&chosen&&!editor->toPlainText().trimmed().isEmpty()&&length<=limit);
+    };
+    connect(editor,&QTextEdit::textChanged,this,[this,editor,updateForm]{manualDraft_=editor->toPlainText();updateForm();});
+    connect(tg,&QCheckBox::toggled,this,[this,updateForm](bool checked){manualTelegramSelected_=checked;updateForm();});
+    connect(dc,&QCheckBox::toggled,this,[this,updateForm](bool checked){manualDiscordSelected_=checked;updateForm();});
+    connect(send,&QPushButton::clicked,this,&StreamDock::sendManualMessage);
+    editor->setReadOnly(manualSending_);updateForm();
+    outer->addWidget(compose);
+
+    if(!manualTelegramStatus_.isEmpty()||!manualDiscordStatus_.isEmpty()) {
+        auto* result=card(&v);section(v,uiText("Результат отправки", "Delivery result"));
+        if(!manualTelegramStatus_.isEmpty())v->addWidget(label("Telegram: "+manualTelegramStatus_,"Hint"));
+        if(!manualDiscordStatus_.isEmpty())v->addWidget(label("Discord: "+manualDiscordStatus_,"Hint"));
+        outer->addWidget(result);
+    }
+    outer->addStretch();return body;
+}
+
+void StreamDock::sendManualMessage()
+{
+    sn::CpuScope snCpuScope;
+    if(manualSending_)return;
+    const bool tg=manualTelegramSelected_&&validTelegram(store_.current.telegramToken,store_.current.telegramChat);
+    const bool dc=manualDiscordSelected_&&validDiscord(store_.current.discordWebhook);
+    const QString message=manualDraft_;
+    if((!tg&&!dc)||message.trimmed().isEmpty()||message.size()>(dc?2000:4096))return;
+    Snapshot snap;
+    snap.token=store_.current.telegramToken;snap.chat=store_.current.telegramChat;
+    snap.webhook=store_.current.discordWebhook;
+    snap.discordEveryone=false; // Manual text never adds an automatic mass mention.
+    manualSending_=true;manualAllSent_=true;manualPending_=int(tg)+int(dc);
+    manualTelegramStatus_=tg?uiText("Отправка…","Sending…"):QString();
+    manualDiscordStatus_=dc?uiText("Отправка…","Sending…"):QString();
+    rebuild();
+    auto submit=[this,snap,message](Channel channel){
+        manualSender_.send(channel,snap,message,[this,channel](Delivery result){
+            if(shuttingDown_)return;
+            const bool ok=result.status==Outcome::Sent;
+            if(!ok)manualAllSent_=false;
+            const QString status=ok?uiText("✓ Отправлено","✓ Sent"):
+                uiText("⚠ Не подтверждено: ","⚠ Unconfirmed: ")+result.detail;
+            if(channel==Channel::Telegram)manualTelegramStatus_=status;
+            else manualDiscordStatus_=status;
+            store_.addEvent(QString(channel==Channel::Telegram?"MANUAL_TELEGRAM ":"MANUAL_DISCORD ")+
+                (ok?"SENT":"NOT_CONFIRMED"));
+            if(--manualPending_==0){
+                manualSending_=false;
+                if(manualAllSent_)manualDraft_.clear();
+            }
+            rebuild();
+        });
+    };
+    if(tg)submit(Channel::Telegram);
+    if(dc)submit(Channel::Discord);
 }
 
 QString StreamDock::donationSummaryText() const
@@ -1398,6 +1516,7 @@ void StreamDock::shutdown()
     ++generation_;
     sender_.abortAll();
     testSender_.abortAll();
+    manualSender_.abortAll();
     donation_.stop();
     store_.flush();
 }
@@ -1414,7 +1533,7 @@ void StreamDock::refreshTelemetry() {
         sn::account(census,store_.current);sn::account(census,session_);
         for(const auto* value:{&statusText_,&transientTelegram_,&transientDiscord_,
             &telegram_.detail,&discord_.detail})census.add(*value);
-        sender_.account(census);testSender_.account(census);donation_.account(census);monitor_.account(census);
+        sender_.account(census);testSender_.account(census);manualSender_.account(census);donation_.account(census);monitor_.account(census);
         for(auto* label:findChildren<QLabel*>())census.add(label->text());
         for(auto* edit:findChildren<QLineEdit*>())census.add(edit->text());
         buffers=census.bytes();

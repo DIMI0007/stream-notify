@@ -141,6 +141,10 @@ inline QIcon streamNavIcon(const QString& kind,bool active=false) {
         path.lineTo(11,17);path.lineTo(5,21);path.lineTo(5,17);path.lineTo(3,17);
         path.lineTo(3,4);path.closeSubpath();p.drawPath(path);
         p.drawLine(7,9,16,9);p.drawLine(7,12,13,12);
+    } else if(kind=="send") {
+        QPainterPath plane;plane.moveTo(2,11);plane.lineTo(22,3);plane.lineTo(16,21);
+        plane.lineTo(11,14);plane.lineTo(2,11);plane.closeSubpath();p.drawPath(plane);
+        p.drawLine(11,14,22,3);
     } else if(kind=="interface") {
         p.drawRoundedRect(QRectF(2,3,20,14),2,2);p.drawLine(12,17,12,21);p.drawLine(7,21,17,21);
     } else if(kind=="donations") {

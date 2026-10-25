@@ -57,6 +57,10 @@ QString failureStatus(int status) {
     if(status==429) return "Rate limited";
     return status>0 ? QString("HTTP %1").arg(status) : "Network error";
 }
+bool validBearerToken(const QString& token) {
+    static const QRegularExpression tokenRE("^[A-Za-z0-9._~+/-]+=*$");
+    return tokenRE.match(token).hasMatch();
+}
 QString streamUrl(const Settings& s) {
     if(!s.youtubeUrl.trimmed().isEmpty()) return s.youtubeUrl.trimmed();
     return s.twitchUrl.trimmed();
@@ -242,7 +246,7 @@ void DonationEngine::configure() {
     const auto& s=store_->current.donations;
     if(s.enabled)fetchRates();
     const bool monitoringPermitted=s.enabled && (!s.onlyLive || live_);
-    const QString newDA=monitoringPermitted && s.daEnabled && !s.daToken.isEmpty()?s.daToken:QString();
+    const QString newDA=monitoringPermitted && s.daEnabled && validBearerToken(s.daToken)?s.daToken:QString();
     const QString newDP=monitoringPermitted && s.dpEnabled && !s.dpToken.isEmpty() && s.legacyApiOptIn?s.dpToken:QString();
     if(newDA!=daSignature_) {
         daSignature_=newDA;daRetry_.stop();
@@ -257,7 +261,7 @@ void DonationEngine::configure() {
     // Inactive signatures may stay empty across setting changes. Refresh their
     // reason every time, even when no connection must be restarted.
     if(newDA.isEmpty())state(daStatus_,!s.enabled?"Module disabled":!s.daEnabled?"Disabled":
-        s.daToken.isEmpty()?"Not configured":"Waiting for stream");
+        s.daToken.isEmpty()?"Not configured":!validBearerToken(s.daToken)?"Invalid token format":"Waiting for stream");
     if(newDP.isEmpty())state(dpStatus_,!s.enabled?"Module disabled":!s.dpEnabled?"Disabled":
         s.dpToken.isEmpty()?"Not configured":!s.legacyApiOptIn?"API verification required":"Waiting for stream");
 }
@@ -363,10 +367,14 @@ void DonationEngine::dpPoll() {
         }
         QJsonObject obj=json.object();
         QJsonArray rows=obj.value("data").toArray();
-        if(rows.isEmpty() && obj.value("data").isObject())rows=obj.value("data").toObject().value("data").toArray();
-        if(rows.isEmpty() && obj.value("transactions").isArray())rows=obj.value("transactions").toArray();
-        // Never report connected to an unrecognized response schema.
-        if(!obj.contains("data")&&!obj.contains("transactions")){state(dpStatus_,"Unrecognized API response");dpReconnect();return;}
+        const bool directData=obj.value("data").isArray();
+        const bool nestedData=obj.value("data").isObject()&&obj.value("data").toObject().value("data").isArray();
+        const bool transactions=obj.value("transactions").isArray();
+        if(nestedData)rows=obj.value("data").toObject().value("data").toArray();
+        if(transactions)rows=obj.value("transactions").toArray();
+        // A 200 response can still be an API error. Pause until the key or
+        // endpoint is checked, instead of polling an incompatible schema forever.
+        if(!directData&&!nestedData&&!transactions){state(dpStatus_,"Unrecognized API response");dpTimer_.stop();return;}
         dpBackoff_=0;
         if(!dpPrimed_){
             for(const auto& row:rows) if(row.isObject())dpBaseline_.insert(first(row.toObject(),{"id","transaction_id"}));

@@ -140,6 +140,23 @@ int main(int argc,char** argv) {
         return panel.grab().save(output+"/"+name+".png");
     };
     if(!save("01-home"))return 1;
+    const QSize homeSize=panel.size();
+    auto* manualShortcut=panel.findChild<QPushButton*>("ManualMessageShortcut");
+    if(!manualShortcut)return 44;
+    manualShortcut->click();pump();
+    auto* manualEditor=panel.findChild<QTextEdit*>("ManualMessageEditor");
+    if(!manualEditor || !panel.findChild<QCheckBox*>("ManualTelegram") ||
+       !panel.findChild<QCheckBox*>("ManualDiscord") || panel.size()!=homeSize)return 45;
+    manualEditor->setPlainText(QString::fromUtf8("Анонс и ссылка: https://example.com"));pump();
+    auto* manualBack=panel.findChild<QPushButton*>("ManualMessageBack");
+    if(!manualBack)return 46;
+    manualBack->click();pump();
+    manualShortcut=panel.findChild<QPushButton*>("ManualMessageShortcut");
+    if(!manualShortcut)return 47;
+    manualShortcut->click();pump();
+    manualEditor=panel.findChild<QTextEdit*>("ManualMessageEditor");
+    if(!manualEditor || !manualEditor->toPlainText().contains("https://example.com"))return 48;
+    manualBack=panel.findChild<QPushButton*>("ManualMessageBack");manualBack->click();pump();
     // Home offers channel setup; stream URLs remain editable in Connections.
     if(!click(QString::fromUtf8("Настроить")) || !save("02-connections"))return 31;
     if(!panel.findChild<QLineEdit*>("TelegramToken") ||
