@@ -277,8 +277,11 @@ int main(int argc,char** argv) {
     std::cerr<<"Monitor connections ready\n";
     DockPreview::monitorDemo(panel);pump();
     std::cerr<<"Monitor UI pumped\n";
+    std::cerr<<"Monitor widgets: output="<<(panel.findChild<QWidget*>("OutputMonitor")!=nullptr)
+        <<" resources="<<(panel.findChild<QWidget*>("PluginResources")!=nullptr)<<"\n";
     if(!panel.findChild<QWidget*>("OutputMonitor") || !panel.findChild<QWidget*>("PluginResources"))return 40;
     const auto outputs=DockPreview::outputViews(panel);
+    std::cerr<<"Monitor views: "<<outputs.size()<<"\n";
     if(outputs.size()!=2 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem){
         std::cerr<<"Unexpected monitor demo outputs: "<<outputs.size()<<"\n";
         for(const auto& output:outputs)
@@ -289,7 +292,9 @@ int main(int argc,char** argv) {
     if(!save("16-monitoring-home"))return 1;
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
     if(!save("17-monitoring-bottom"))return 1;
-    if(!DockPreview::retainStoppedOutputs(panel))return 54;
+    const bool retained=DockPreview::retainStoppedOutputs(panel);
+    std::cerr<<"Stopped output histories retained="<<retained<<"\n";
+    if(!retained)return 54;
     DockPreview::stopMonitorDemo(panel);pump();
     DockPreview::restoreSettings(panel,monitorSettings);pump();
     DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
