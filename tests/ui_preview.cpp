@@ -153,8 +153,12 @@ int main(int argc,char** argv) {
     auto save=[&](const QString& name){
         pump();
         for(auto* label:panel.findChildren<QLabel*>())
-            if(label->text().contains(QString::fromUtf8("Сохранено")) || label->text().contains(QString::fromUtf8("Автосохранение")))return false;
-        return panel.grab().save(output+"/"+name+".png");
+            if(label->text().contains(QString::fromUtf8("Сохранено")) || label->text().contains(QString::fromUtf8("Автосохранение"))){
+                std::cerr<<"Unexpected save status in "<<name.toStdString()<<"\n";return false;
+            }
+        const bool saved=panel.grab().save(output+"/"+name+".png");
+        if(!saved)std::cerr<<"Cannot save preview "<<name.toStdString()<<"\n";
+        return saved;
     };
     if(!save("01-home"))return 1;
     auto* settingsShortcut=panel.findChild<QPushButton*>("SettingsShortcut");
