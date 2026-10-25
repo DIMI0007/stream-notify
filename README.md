@@ -4,7 +4,7 @@
 
 Нативный плагин для **OBS Studio 33.0.0 x64**: анонсы трансляций и уведомления о донатах с сервисов **DonationAlerts** и **DonatePay** с отправкой в **Telegram и Discord**. Работает внутри OBS, включая сетевые выходы **Aitum Multistream**.
 
-[**Скачать тестовую DLL для Windows**](https://github.com/DIMI0007/stream-notify/actions/runs/40127819775/artifacts/12574155188) ·
+[**Скачать последнюю сборку для Windows**](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml) ·
 [Установить или обновить](docs/TEST_WINDOWS_RU.md) ·
 [Все сборки](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml)
 
