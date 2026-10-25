@@ -14,6 +14,24 @@
 #include <QLineEdit>
 #include <iostream>
 struct DockPreview {
+    struct ServiceScene {Settings settings;QString da,dp;};
+    static ServiceScene connectedServices(StreamDock& panel){
+        ServiceScene previous{panel.store_.current,panel.donation_.daStatus_,panel.donation_.dpStatus_};
+        // UI-only fixture. No auth calls or real connectivity are simulated as proof.
+        panel.donationConfigure_.stop();panel.store_.current.donations.enabled=true;
+        panel.store_.current.donations.daEnabled=true;panel.store_.current.donations.dpEnabled=true;
+        panel.donation_.daStatus_="Connected";panel.donation_.dpStatus_="API connected (HTTP polling)";
+        panel.page_=StreamDock::Page::Donations;panel.donationPage_=StreamDock::DonationPage::Services;panel.rebuild();return previous;
+    }
+    static void deliveredHome(StreamDock& panel){
+        panel.store_.current.lastTime=QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+        panel.store_.current.lastTelegram=QString::fromUtf8("✓ Отправлено");panel.store_.current.lastDiscord=QString::fromUtf8("✓ Отправлено");
+        panel.page_=StreamDock::Page::Home;panel.rebuild();
+    }
+    static void restoreServices(StreamDock& panel,const ServiceScene& previous){
+        panel.store_.current=previous.settings;panel.donation_.daStatus_=previous.da;panel.donation_.dpStatus_=previous.dp;
+        panel.page_=StreamDock::Page::Donations;panel.donationPage_=StreamDock::DonationPage::Services;panel.rebuild();
+    }
     static bool ignoresSavedAnnouncementAtStartup(StreamDock& panel) {
         const Settings original=panel.store_.current;
         panel.store_.current.lastTime="2026-10-24 16:00:24";
@@ -223,6 +241,11 @@ int main(int argc,char** argv) {
     if(!click(QString::fromUtf8("Донаты")) || !save("05-donations"))return 1;
     if(!click(QString::fromUtf8("Связь")) || !save("06-connections-return"))return 1;
     if(!click(QString::fromUtf8("Донаты")))return 1;
+    const auto serviceScene=DockPreview::connectedServices(panel);pump();
+    if(!save("20-services-connected"))return 60;
+    DockPreview::deliveredHome(panel);pump();
+    if(!save("21-home-delivered"))return 61;
+    DockPreview::restoreServices(panel,serviceScene);pump();
     const QSize dockSize=panel.size();
     auto donationTab=[&](int section) {
         for(auto* button:panel.findChildren<QPushButton*>()) {
