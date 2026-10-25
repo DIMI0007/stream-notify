@@ -497,7 +497,7 @@ void DonationEngine::fetchRates(bool manual) {
                 const double nominal=row.value("Nominal").toDouble(0);
                 const double value=row.value("Value").toDouble(0);
                 const QString code=row.value("CharCode").toString().toUpper();
-                if(QRegularExpression("^[A-Z]{ sn::CpuScope snCallbackScope; 3}$").match(code).hasMatch() &&
+                if(QRegularExpression("^[A-Z]{3}$").match(code).hasMatch() &&
                     std::isfinite(nominal)&&nominal>0&&std::isfinite(value)&&value>0)
                     rates[code]=value/nominal;
             }
@@ -530,3 +530,4 @@ void DonationEngine::account(sn::BufferCensus& census) const {
     sender_.account(census);sessionStats_.account(census);
     for(auto* reply:http_.findChildren<QNetworkReply*>())sn::accountReply(census,reply);
 }
+

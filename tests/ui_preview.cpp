@@ -69,6 +69,22 @@ struct DockPreview {
         streamPreviewOutputs.clear();panel.monitor_.clear();panel.broadcasting_=false;panel.donation_.setLive(false);
         panel.telemetryTimer_.start();panel.streamStateTimer_.start();panel.rebuild();
     }
+    static bool retainStoppedOutputs(StreamDock& panel) {
+        streamPreviewOutputs[0].active=false;
+        panel.monitor_.sample(32000);
+        streamPreviewOutputs.erase(streamPreviewOutputs.begin()); // Aitum removes the YouTube output.
+        panel.monitor_.sample(34000);
+        streamPreviewOutputs[0].active=false;
+        panel.monitor_.sample(36000);
+        streamPreviewOutputs.clear(); // Twitch output disappears later.
+        const auto views=panel.monitor_.sample(38000);
+        bool youtube=false,twitch=false;
+        for(const auto& view:views) {
+            if(view.platform=="YouTube")youtube=!view.stats.active&&view.stats.bytes>0;
+            if(view.platform=="Twitch")twitch=!view.stats.active&&view.stats.bytes>0;
+        }
+        return youtube&&twitch;
+    }
     static Settings demoConnections(StreamDock& panel) {
         const Settings original=panel.store_.current;
         auto& s=panel.store_.current;
@@ -256,6 +272,7 @@ int main(int argc,char** argv) {
     if(!save("16-monitoring-home"))return 1;
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
     if(!save("17-monitoring-bottom"))return 1;
+    if(!DockPreview::retainStoppedOutputs(panel))return 54;
     DockPreview::stopMonitorDemo(panel);pump();
     DockPreview::restoreSettings(panel,monitorSettings);pump();
     DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
@@ -297,3 +314,4 @@ int main(int argc,char** argv) {
     panel.shutdown();
     std::cout<<"Dock navigation, language and compact-mode smoke tests passed\n";
 }
+

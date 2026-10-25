@@ -228,6 +228,7 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
         if(daStatusLabel_) daStatusLabel_->setText(serviceStatus(donation_.daStatus(),isRu()));
         if(dpStatusLabel_) dpStatusLabel_->setText(serviceStatus(donation_.dpStatus(),isRu()));
         if(donationSummaryLabel_)donationSummaryLabel_->setText(donationSummaryText());
+        if(donationConnectionLabel_)donationConnectionLabel_->setText(donationConnectionText());
         if(donationJournalLabel_) {
             const auto entries=donation_.journal();
             donationJournalLabel_->setText(entries.isEmpty()?uiText("Пока нет донатов","No donations yet"):entries.mid(0,6).join("\n"));
@@ -325,6 +326,7 @@ void StreamDock::rebuildNow()
     root_->setSpacing(store_.current.compact ? 3 : 5);
     title_ = nullptr;
     daStatusLabel_ = nullptr; dpStatusLabel_ = nullptr; donationJournalLabel_ = nullptr;
+    donationConnectionLabel_=nullptr;
     central_ = nullptr;
     auto* header = new QWidget;
     auto* h = new QHBoxLayout(header);
@@ -507,13 +509,18 @@ QWidget* StreamDock::buildHome()
     outer->addWidget(channels);
 
     auto* delivery=card(&v);section(v,uiText("Отправка анонса","Stream announcement"));
-    const bool sentNow=telegram_.status==Outcome::Sent || discord_.status==Outcome::Sent;
+    const bool sentNow=announcementAttempted_ &&
+        (!session_.telegram || telegram_.status==Outcome::Sent) &&
+        (!session_.discord || discord_.status==Outcome::Sent);
+    const bool partial=announcementAttempted_ && !sentNow &&
+        (telegram_.status==Outcome::Sent || discord_.status==Outcome::Sent);
     const bool cancelled=telegram_.status==Outcome::Cancelled || discord_.status==Outcome::Cancelled;
     // Persisted delivery history belongs in the tooltip, not the current session status.
     // Otherwise yesterday's successful announcement looks freshly sent on OBS startup.
     const bool sent=announcementAttempted_&&sentNow;
     QString outcome=sent?(broadcasting_?uiText("✓ Отправлен","✓ Sent"):
         uiText("Последний анонс: ✓ отправлен","Last announcement: ✓ sent")):
+        partial?uiText("Анонс отправлен частично","Announcement partly delivered"):
         broadcasting_&&cancelled?uiText("Отправка отменена","Cancelled"):
         broadcasting_&&announcementAttempted_?uiText("Доставка не подтверждена","Delivery unconfirmed"):
         !broadcasting_&&announcementAttempted_?uiText("Последний анонс: доставка не подтверждена","Last announcement: delivery unconfirmed"):
@@ -522,6 +529,8 @@ QWidget* StreamDock::buildHome()
     auto* announcementStatus=label(outcome,sent?"Good":"Hint");
     announcementStatus->setProperty("announcementStatus",true);
     v->addWidget(announcementStatus);
+    if(announcementAttempted_)v->addWidget(label(
+        "Telegram: "+statusName(telegram_)+"  ·  Discord: "+statusName(discord_),"Hint"));
     delivery->setToolTip(store_.current.lastTime+"\nTelegram: "+store_.current.lastTelegram+"\nDiscord: "+store_.current.lastDiscord+"\n"+statusText_);
     outer->addWidget(delivery);
 
@@ -531,7 +540,12 @@ QWidget* StreamDock::buildHome()
     donationSummary->setToolTip(uiText(
         "Полученные плагином реальные донаты за текущий/последний эфир, включая суммы ниже порога. Тесты и повторы исключены. Перезапуск OBS обнуляет эту сводку; журнал доставки сохраняется.",
         "Real donations observed during the current/last stream, including amounts below the announcement threshold. Tests and duplicates are excluded. This summary resets on OBS restart; delivery history remains saved."));
-    v->addWidget(donationSummary);outer->addWidget(donations);
+    v->addWidget(donationSummary);
+    if(store_.current.donations.enabled){
+        donationConnectionLabel_=label(donationConnectionText(),"Hint");
+        v->addWidget(donationConnectionLabel_);
+    }
+    outer->addWidget(donations);
 
     auto* outputs=new sn::OutputPanel(isRu());outputs->setObjectName("OutputMonitor");
     outputs->setStyleSheet("QWidget#OutputMonitor{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
@@ -678,6 +692,15 @@ QString StreamDock::donationSummaryText() const
         locale.toString(summary.rub,'f',std::floor(summary.rub)==summary.rub?0:2)+QString::fromUtf8(" ₽");
     if(summary.unpriced)result+=uiText(" · без курса: %1"," · unpriced: %1").arg(qulonglong(summary.unpriced));
     return result;
+}
+
+QString StreamDock::donationConnectionText() const
+{
+    const auto& settings=store_.current.donations;
+    QStringList parts;
+    if(settings.daEnabled)parts << "DonationAlerts: "+serviceStatus(donation_.daStatus(),isRu());
+    if(settings.dpEnabled)parts << "DonatePay: "+serviceStatus(donation_.dpStatus(),isRu());
+    return parts.join("\n");
 }
 
 QWidget* StreamDock::buildConnections()
@@ -1437,15 +1460,9 @@ void StreamDock::streamStopped()
     alreadyHandled_ = false;
     if (phase_ == Phase::Counting) {cancelCurrent("Stream stopped"); return;}
     if (phase_ == Phase::Sending) {
-        ++generation_;
-        // The remote system might already have received a request. Never retry it.
-        if (telegram_.status == Outcome::Sending) telegram_ = {Outcome::Unknown, "Stream stopped during request",telegram_.attempts};
-        if (discord_.status == Outcome::Sending) discord_ = {Outcome::Unknown, "Stream stopped during request",discord_.attempts};
-        if (telegram_.status == Outcome::Waiting) telegram_.status = Outcome::Cancelled;
-        if (discord_.status == Outcome::Waiting) discord_.status = Outcome::Cancelled;
-        sender_.abortAll();
-        activePending_ = 0;
-        complete();
+        // Requests already sent must finish independently of the stream output.
+        // Aborting here loses a Discord confirmation when the last output stops.
+        rebuild();
         return;
     }
     rebuild();
@@ -1565,3 +1582,4 @@ void StreamDock::refreshTelemetry() {
     usage_=usageSampler_.sample(buffers);
     if(show){if(outputPanel_)outputPanel_->setOutputs(monitor_.views());if(resourcePanel_)resourcePanel_->setUsage(usage_);}
 }
+

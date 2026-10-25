@@ -72,6 +72,7 @@ private:
     QVBoxLayout* root_ = nullptr;
     QLabel* title_ = nullptr;
     QPointer<QLabel> donationSummaryLabel_;
+    QPointer<QLabel> donationConnectionLabel_;
     QPointer<sn::OutputPanel> outputPanel_;
     QPointer<sn::ResourcePanel> resourcePanel_;
     sn::StreamMonitor monitor_;
@@ -97,6 +98,7 @@ private:
     QWidget* buildManualMessage();
     void sendManualMessage();
     QString donationSummaryText() const;
+    QString donationConnectionText() const;
     QWidget* buildConnections();
     QWidget* buildMessage();
     QWidget* buildInterface();
@@ -121,3 +123,4 @@ private:
     void changeSettings();
     void updateSaved(bool success);
 };
+

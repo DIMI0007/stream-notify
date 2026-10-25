@@ -6,6 +6,7 @@
 #include <QVector>
 #include <QUrl>
 #include <QSet>
+#include <algorithm>
 
 namespace sn {
 struct OutputView {QString key,platform,name;OutputStats stats;};
@@ -27,7 +28,7 @@ public:
         for(auto it=entries_.begin();it!=entries_.end();++it)
             obs_weak_output_release(reinterpret_cast<obs_weak_output_t*>(it.key()));
 #endif
-        entries_.clear();seen_.clear();views_.clear();
+        entries_.clear();seen_.clear();views_.clear();completed_.clear();
     }
     QVector<OutputView> sample(int64_t now) {
         CpuScope scope;now_=now;seen_.clear();views_.clear();
@@ -40,7 +41,8 @@ public:
             auto& entry=entries_[key];
             const OutputSample sample{item.active,item.reconnecting,item.bytes,item.frames,item.dropped,item.targetKbps};
             const auto name=item.name.isEmpty()?QString("Preview output %1").arg(index):item.name;
-            views_.push_back({QString::number(key),platformFor(name,item.platform,QString()),name,entry.health.update(sample,now)});
+            entry.view={QString::number(key),platformFor(name,item.platform,QString()),name,entry.health.update(sample,now)};
+            views_.push_back(entry.view);
         }
 #else
         obs_enum_outputs([](void* opaque,obs_output_t* output){
@@ -49,11 +51,25 @@ public:
 #endif
         for(auto it=entries_.begin();it!=entries_.end();) {
             if(!seen_.contains(it.key())){
+                if(it.value().view.stats.hasCounters && it.value().view.platform!="RTMP")
+                    completed_[it.value().view.platform]=it.value().view;
 #ifndef STREAM_NOTIFY_UI_PREVIEW
                 obs_weak_output_release(reinterpret_cast<obs_weak_output_t*>(it.key()));
 #endif
                 it=entries_.erase(it);
             } else ++it;
+        }
+        for(const auto& view:views_)if(view.stats.active)completed_.remove(view.platform);
+        for(auto it=completed_.cbegin();it!=completed_.cend();++it) {
+            const bool haveHistory=std::any_of(views_.cbegin(),views_.cend(),[&](const OutputView& view){
+                return view.platform==it.key() && (view.stats.active || view.stats.hasCounters);
+            });
+            if(!haveHistory){
+                views_.erase(std::remove_if(views_.begin(),views_.end(),[&](const OutputView& view){
+                    return view.platform==it.key() && !view.stats.active && !view.stats.hasCounters;
+                }),views_.end());
+                views_.push_back(it.value());
+            }
         }
         return views_;
     }
@@ -62,7 +78,7 @@ public:
         for(const auto& v:views_){census.add(v.key);census.add(v.name);census.add(v.platform);}
     }
 private:
-    struct Entry {OutputHealth health;};
+    struct Entry {OutputHealth health;OutputView view;};
 #ifndef STREAM_NOTIFY_UI_PREVIEW
     bool observe(obs_output_t* output) {
         if(!(obs_output_get_flags(output)&OBS_OUTPUT_SERVICE))return true;
@@ -91,10 +107,14 @@ private:
         sample.active=obs_output_active(output);sample.reconnecting=obs_output_reconnecting(output);
         sample.bytes=obs_output_get_total_bytes(output);sample.frames=uint64_t(std::max(0,obs_output_get_total_frames(output)));
         sample.dropped=uint64_t(std::max(0,obs_output_get_frames_dropped(output)));sample.targetKbps=target;
-        views_.push_back({QString::number(key),platformFor(name,service,server),name,entries_[key].health.update(sample,now_)});
+        auto& entry=entries_[key];
+        entry.view={QString::number(key),platformFor(name,service,server),name,entry.health.update(sample,now_)};
+        views_.push_back(entry.view);
         return true;
     }
 #endif
-    QMap<quintptr,Entry> entries_;QSet<quintptr> seen_;QVector<OutputView> views_;int64_t now_=0;
+    QMap<quintptr,Entry> entries_;QSet<quintptr> seen_;QVector<OutputView> views_;
+    QMap<QString,OutputView> completed_;int64_t now_=0;
 };
 }
+
