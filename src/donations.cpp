@@ -149,7 +149,8 @@ bool DonationLedger::load() {
     sn::CpuScope snCpuScope;
     QFile f(path_); if(!f.exists()) return true;
     if(!f.open(QIODevice::ReadOnly)){error_="Cannot read donation journal";return false;}
-    QJsonParseError e; auto j=QJsonDocument::fromJson(f.readAll(),&e);
+    const QByteArray bytes=f.readAll();f.close();
+    QJsonParseError e; auto j=QJsonDocument::fromJson(bytes,&e);
     if(e.error!=QJsonParseError::NoError || !j.isObject()){error_="Donation journal corrupted: no events will be sent";return false;}
     if(j.object().value("version").toInt()!=1||!j.object().value("items").isObject()){
         error_="Donation journal schema invalid: no events will be sent";return false;
