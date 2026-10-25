@@ -50,6 +50,10 @@
 ## DonationAlerts
 Реализован адаптер /user/oauth, /centrifuge/subscribe и Centrifugo WebSocket.
 OAuth-токен вводится локально; нужны scopes oauth-user-show и oauth-donation-subscribe.
+**Токен виджета оповещений не является OAuth access token.** Он работает в виджете OBS,
+но запросы `/api/v1/user/oauth` с ним получают отказ. Нужен токен приложения,
+выданный через [OAuth DonationAlerts](https://www.donationalerts.com/apidoc)
+с разрешениями `oauth-user-show` и `oauth-donation-subscribe`. Сам токен не публикуйте.
 Получение реальных событий и обработку разрывов нужно проверить на аккаунте.
 
 ## DonatePay
@@ -82,3 +86,4 @@ Windows DLL собирается; CI проверяет логику и HTTPS.
 Пользователь подтвердил успешные тесты отправки донатных сообщений в Telegram/Discord.
 Это не заменяет проверку приёма настоящего нового доната DonationAlerts/DonatePay.
 Ключи и webhook не добавляются в CI и не пересылаются через чат.
+

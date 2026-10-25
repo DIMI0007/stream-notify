@@ -38,6 +38,7 @@ struct DockPreview {
     static quint64 session(const StreamDock& panel){return panel.generation_;}
     static void monitorDemo(StreamDock& panel) {
         panel.telemetryTimer_.stop();panel.streamStateTimer_.stop();
+        panel.monitor_.clear();
         streamPreviewOutputs.clear();
         StreamPreviewOutput youtube{true,true};youtube.name="Aitum YouTube";youtube.platform="YouTube";
         StreamPreviewOutput twitch{true,true};twitch.name="Aitum Twitch";twitch.platform="Twitch";
@@ -268,7 +269,13 @@ int main(int argc,char** argv) {
     DockPreview::monitorDemo(panel);pump();
     if(!panel.findChild<QWidget*>("OutputMonitor") || !panel.findChild<QWidget*>("PluginResources"))return 40;
     const auto outputs=DockPreview::outputViews(panel);
-    if(outputs.size()!=2 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem)return 41;
+    if(outputs.size()!=2 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem){
+        std::cerr<<"Unexpected monitor demo outputs: "<<outputs.size()<<"\n";
+        for(const auto& output:outputs)
+            std::cerr<<output.platform.toStdString()<<" bytes="<<output.stats.bytes
+                <<" recentProblem="<<output.stats.recentProblem<<"\n";
+        return 41;
+    }
     if(!save("16-monitoring-home"))return 1;
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
     if(!save("17-monitoring-bottom"))return 1;

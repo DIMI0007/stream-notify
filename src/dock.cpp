@@ -533,6 +533,9 @@ QWidget* StreamDock::buildHome()
     v->addWidget(announcementStatus);
     if(announcementAttempted_)v->addWidget(label(
         "Telegram: "+statusName(telegram_)+"  ·  Discord: "+statusName(discord_),"Hint"));
+    else if(!store_.current.lastTime.isEmpty())v->addWidget(label(
+        uiText("Прошлый анонс: ","Previous announcement: ")+store_.current.lastTime+
+        "\nTelegram: "+store_.current.lastTelegram+"  ·  Discord: "+store_.current.lastDiscord,"Hint"));
     delivery->setToolTip(store_.current.lastTime+"\nTelegram: "+store_.current.lastTelegram+"\nDiscord: "+store_.current.lastDiscord+"\n"+statusText_);
     outer->addWidget(delivery);
 
@@ -940,6 +943,9 @@ QWidget* StreamDock::buildDonations()
         auto* reveal=btn(uiText("Показать", "Show"));
         connect(reveal,&QPushButton::clicked,this,[edit]{edit->setEchoMode(edit->echoMode()==QLineEdit::Password?QLineEdit::Normal:QLineEdit::Password);});
         rowWith(l,edit,reveal);
+        if(title=="DonationAlerts")l->addWidget(label(uiText(
+            "Нужен OAuth access token для API. Токен виджета оповещений не подходит.",
+            "Requires an API OAuth access token. Alert widget tokens do not work."),"Hint"));
         auto* verify=btn(uiText("Проверить подключение", "Check connection"));
         connect(verify,&QPushButton::clicked,this,[this,title,test] {
             const auto& settings=store_.current.donations;
@@ -1512,8 +1518,10 @@ void StreamDock::complete()
 {
     sn::CpuScope snCpuScope;
     countdown_.stop();
-    store_.current.lastTelegram = statusName(telegram_);
-    store_.current.lastDiscord = statusName(discord_);
+    store_.current.lastTelegram = statusName(telegram_)+
+        (telegram_.detail.isEmpty()?QString():" — "+telegram_.detail);
+    store_.current.lastDiscord = statusName(discord_)+
+        (discord_.detail.isEmpty()?QString():" — "+discord_.detail);
     store_.current.lastTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     store_.addEvent("SESSION_FINISHED");
     statusText_=uiText("Последняя рассылка завершена", "Last delivery completed");
