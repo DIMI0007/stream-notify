@@ -279,7 +279,11 @@ void DonationEngine::daConnect() {
         int status=r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray data=r->readAll();r->deleteLater();
         if(epoch!=daEpoch_||closing_||daSignature_.isEmpty())return;
-        if(status!=200) {state(daStatus_,failureStatus(status));if(status!=401&&status!=403)daReconnect();return;}
+        if(status!=200) {
+            state(daStatus_,status==401?"OAuth token rejected (401)":
+                status==403?"DonationAlerts permission denied (403)":failureStatus(status));
+            if(status!=401&&status!=403)daReconnect();return;
+        }
         auto result=QJsonDocument::fromJson(data).object().value("data").toObject();
         const QString userId=first(result,{"id"});daSocketToken_=result.value("socket_connection_token").toString();
         if(userId.isEmpty()||daSocketToken_.isEmpty()){state(daStatus_,"Missing user/socket scope");return;}
@@ -301,7 +305,11 @@ void DonationEngine::daSubscribe(const QString& clientId) {
         int status=r->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QJsonDocument json=QJsonDocument::fromJson(r->readAll());r->deleteLater();
         if(epoch!=daEpoch_||closing_)return;
-        if(status!=200){state(daStatus_,failureStatus(status));if(status!=401&&status!=403)daReconnect();return;}
+        if(status!=200){
+            state(daStatus_,status==401?"OAuth token rejected (401)":
+                status==403?"DonationAlerts permission denied (403)":failureStatus(status));
+            if(status!=401&&status!=403)daReconnect();return;
+        }
         QJsonArray channels=json.object().value("channels").toArray();
         if(channels.isEmpty()){state(daStatus_,"Channel subscribe failed");daReconnect();return;}
         const QString token=channels.first().toObject().value("token").toString();

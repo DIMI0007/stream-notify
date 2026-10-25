@@ -102,6 +102,8 @@ QString serviceStatus(const QString& value,bool russian) {
         {"API verification required",QString::fromUtf8("API требует проверки")},
         {"API responded (legacy, unverified)",QString::fromUtf8("API ответил — экспериментальный режим")},
         {"Invalid or expired token",QString::fromUtf8("Токен недействителен или истёк")},
+        {"OAuth token rejected (401)",QString::fromUtf8("OAuth-токен отклонён API (401)")},
+        {"DonationAlerts permission denied (403)",QString::fromUtf8("Нет прав DonationAlerts API (403)")},
         {"Invalid token format",QString::fromUtf8("Неверный формат OAuth-токена")},
         {"Unrecognized API response",QString::fromUtf8("Ответ API не распознан — проверьте ключ и метод")},
         {"Rate limited",QString::fromUtf8("Лимит запросов — подождите")},
