@@ -37,6 +37,7 @@ struct DockPreview {
     static bool live(const StreamDock& panel){return panel.broadcasting_;}
     static quint64 session(const StreamDock& panel){return panel.generation_;}
     static void monitorDemo(StreamDock& panel) {
+        std::cerr<<"Entering monitor demo\n";
         panel.telemetryTimer_.stop();panel.streamStateTimer_.stop();
         panel.monitor_.clear();
         streamPreviewOutputs.clear();
@@ -61,10 +62,12 @@ struct DockPreview {
         panel.donation_.onDonation(first);panel.donation_.onDonation(second);panel.donation_.onDonation(first);
         Donation test=first;test.id="ui-summary-test";test.isTest=true;panel.donation_.onDonation(test);
         const auto summary=panel.donation_.sessionSummary();
+        std::cerr<<"Monitor donation summary: "<<summary.count<<" events, "<<summary.rub<<" RUB\n";
         if(summary.count!=2 || summary.rub!=99)qFatal("Donation summary did not deduplicate below-threshold events");
         donations=originalDonations;
         panel.broadcasting_=true;panel.page_=StreamDock::Page::Home;panel.phase_=StreamDock::Phase::Idle;
         panel.rebuild();
+        std::cerr<<"Monitor demo ready\n";
     }
     static void stopMonitorDemo(StreamDock& panel) {
         streamPreviewOutputs.clear();panel.monitor_.clear();panel.broadcasting_=false;panel.donation_.setLive(false);
@@ -269,8 +272,11 @@ int main(int argc,char** argv) {
     DockPreview::restoreSettings(panel,originalSettings);pump();
     for(const auto& timer:readyTimers)if(timer)return 38;
     std::cout<<"Setup links, donation idle reasons and visible-only ready indicators passed\\n";
+    std::cerr<<"Starting monitor stage\n";
     const Settings monitorSettings=DockPreview::demoConnections(panel);pump();
+    std::cerr<<"Monitor connections ready\n";
     DockPreview::monitorDemo(panel);pump();
+    std::cerr<<"Monitor UI pumped\n";
     if(!panel.findChild<QWidget*>("OutputMonitor") || !panel.findChild<QWidget*>("PluginResources"))return 40;
     const auto outputs=DockPreview::outputViews(panel);
     if(outputs.size()!=2 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem){
