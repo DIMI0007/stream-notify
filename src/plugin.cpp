@@ -13,6 +13,7 @@
 #include <QSslSocket>
 #include <util/bmem.h>
 #include "dock.hpp"
+#include "version.hpp"
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Stream Notify Contributors")
@@ -94,7 +95,7 @@ bool obs_module_load(void)
         QSslSocket::activeBackend().toUtf8().constData());
     obs_frontend_add_event_callback(onFrontend, nullptr);
     g_registered = true;
-    blog(LOG_INFO, "[Stream Notify] Module loaded; waiting for frontend initialization");
+    blog(LOG_INFO, "[Stream Notify] Version %s (%s) loaded; waiting for frontend initialization",STREAM_NOTIFY_VERSION,STREAM_NOTIFY_BUILD);
     return true;
 }
 void obs_module_unload(void)
@@ -114,3 +115,4 @@ void obs_module_unload(void)
         g_qtPluginPath.clear();
     }
 }
+

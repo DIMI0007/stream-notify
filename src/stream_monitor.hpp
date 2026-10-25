@@ -51,8 +51,12 @@ public:
 #endif
         for(auto it=entries_.begin();it!=entries_.end();) {
             if(!seen_.contains(it.key())){
-                if(it.value().view.stats.hasCounters && it.value().view.platform!="RTMP")
+                if(it.value().view.stats.hasCounters && it.value().view.platform!="RTMP") {
+                    // Aitum can destroy an output before the next inactive sample.
+                    // Preserve counters, but never preserve an active/reconnecting badge.
+                    it.value().view.stats=it.value().health.update(OutputSample{},now);
                     completed_[it.value().view.platform]=it.value().view;
+                }
 #ifndef STREAM_NOTIFY_UI_PREVIEW
                 obs_weak_output_release(reinterpret_cast<obs_weak_output_t*>(it.key()));
 #endif

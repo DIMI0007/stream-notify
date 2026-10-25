@@ -20,6 +20,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
+execute_process(COMMAND git rev-parse --short=12 HEAD
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  OUTPUT_VARIABLE STREAM_NOTIFY_BUILD OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if(NOT STREAM_NOTIFY_BUILD MATCHES "^[0-9a-f]+$")
+  set(STREAM_NOTIFY_BUILD "source")
+endif()
+configure_file(src/version.hpp.in "${CMAKE_CURRENT_BINARY_DIR}/generated/version.hpp" @ONLY)
+include_directories("${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 find_package(libobs REQUIRED)
 find_package(obs-frontend-api REQUIRED)
@@ -135,3 +143,4 @@ target_compile_options(stream-notify-donation-summary-tests PRIVATE /UNDEBUG /ut
 add_test(NAME donation-session-summary COMMAND stream-notify-donation-summary-tests)
 set_tests_properties(donation-session-summary PROPERTIES
   ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+

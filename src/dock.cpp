@@ -1,4 +1,5 @@
 #include "dock.hpp"
+#include "version.hpp"
 #include "stream_activity.hpp"
 #include "ui_widgets.hpp"
 #include "telemetry_widgets.hpp"
@@ -164,15 +165,15 @@ public:
     explicit CreditFooter(QWidget* parent=nullptr):QWidget(parent) {
         setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);
         setAccessibleName("developed by OTMOPOZOK — YouTube");
-        setToolTip("https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/");
+        setToolTip(QString("Stream Notify %1 (%2)\nhttps://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/").arg(STREAM_NOTIFY_VERSION,STREAM_NOTIFY_BUILD));
     }
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         QFont f=font();f.setPixelSize(11);p.setFont(f);
         const QFontMetricsF m(f);
-        const QString prefix="developed by ",nick="OTMOPOZOK";
-        const qreal x=std::max(qreal(2),(width()-m.horizontalAdvance(prefix+nick))/2);
+        const QString prefix="developed by ",nick="OTMOPOZOK",version=" · v" STREAM_NOTIFY_VERSION;
+        const qreal x=std::max(qreal(2),(width()-m.horizontalAdvance(prefix+nick+version))/2);
         const qreal baseline=(height()-m.height())/2+m.ascent();
         const qreal nickX=x+m.horizontalAdvance(prefix);
         nickRect_=QRectF(nickX-2,baseline-m.ascent()-2,m.horizontalAdvance(nick)+4,m.height()+4);
@@ -183,6 +184,7 @@ protected:
         };
         draw(x,prefix,QColor("#9299a5"));
         draw(nickX,nick,hover_?QColor("#59dfff"):QColor("#9299a5"));
+        draw(nickX+m.horizontalAdvance(nick),version,QColor("#9299a5"));
         if(hover_||hasFocus()) {
             p.setPen(QPen(QColor("#59dfff"),1));
             p.drawLine(QPointF(nickX,baseline+2),QPointF(nickX+m.horizontalAdvance(nick),baseline+2));
@@ -1159,7 +1161,9 @@ QWidget* StreamDock::buildInterface()
 
     auto* about = card(&v);
     section(v,uiText("О плагине", "About"));
-    v->addWidget(label("Stream Notify 1.0.0"));
+    auto* versionLabel=label(QString("Stream Notify %1\n%2").arg(STREAM_NOTIFY_VERSION,STREAM_NOTIFY_BUILD));
+    versionLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    v->addWidget(versionLabel);
     v->addWidget(label(uiText("Анонсы стримов и донатов.\nНастройки хранятся на этом ПК.", "Stream and donation announcements.\nSettings are stored on this PC."), "Hint"));
     outer->addWidget(about);
     outer->addStretch();

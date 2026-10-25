@@ -1,5 +1,7 @@
 Stream Notify — current validation status
 
+2026-10-26 USER CONFIRMED: restored pre-fix DLL (SHA256 DF6C35BC5B08948FFEA767AEB58F8FB895079856E1033DFA11497BCBA35D8C37) loaded in OBS; real stream-start announcement reached both Telegram and Discord, with a Discord screenshot. This is validation of the restored previous build, not of the new fixes. The earlier intermittent Discord failure has not been reproduced or assigned a confirmed root cause.
+
 PASS: Windows x64 build for OBS 33.0.0 / Qt 6.11.1.
 PASS: C++ donation threshold and fixed-rate conversion tests.
 PASS: Telegram channel-link normalization tests.
@@ -33,3 +35,4 @@ PASS: stream cards show only state, bitrate and transferred GiB; detailed loss/h
 PASS: donation-session-summary tests cover below-threshold amounts, FX/unpriced amounts, duplicate replay, manual-test exclusion and session reset.
 PASS: UI preview injects two below-threshold donations and verifies count=2, RUB=99 without any outbound notification.
 NOTE: donation summary is observed current/last-stream activity, resets on OBS restart and is not a provider payment-history report.
+

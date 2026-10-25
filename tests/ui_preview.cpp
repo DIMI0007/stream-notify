@@ -74,9 +74,7 @@ struct DockPreview {
         panel.telemetryTimer_.start();panel.streamStateTimer_.start();panel.rebuild();
     }
     static bool retainStoppedOutputs(StreamDock& panel) {
-        streamPreviewOutputs[0].active=false;
-        panel.monitor_.sample(32000);
-        streamPreviewOutputs.erase(streamPreviewOutputs.begin()); // Aitum removes the YouTube output.
+        streamPreviewOutputs.erase(streamPreviewOutputs.begin()); // Aitum can remove an active output between samples.
         panel.monitor_.sample(34000);
         streamPreviewOutputs[0].active=false;
         panel.monitor_.sample(36000);
@@ -87,7 +85,17 @@ struct DockPreview {
             if(view.platform=="YouTube")youtube=!view.stats.active&&view.stats.bytes>0;
             if(view.platform=="Twitch")twitch=!view.stats.active&&view.stats.bytes>0;
         }
-        return youtube&&twitch;
+        if(!youtube||!twitch)return false;
+        StreamPreviewOutput restarted{true,true};restarted.id=3;restarted.name="New YouTube";restarted.platform="YouTube";
+        restarted.bytes=1000;restarted.frames=1;
+        streamPreviewOutputs={restarted};
+        const auto restartedViews=panel.monitor_.sample(40000);
+        int youtubeRows=0;bool fresh=false,oldTwitch=false;
+        for(const auto& view:restartedViews){
+            if(view.platform=="YouTube"){++youtubeRows;fresh=view.stats.active&&view.stats.bytes==1000;}
+            if(view.platform=="Twitch")oldTwitch=!view.stats.active&&view.stats.bytes>0;
+        }
+        return youtubeRows==1&&fresh&&oldTwitch;
     }
     static Settings demoConnections(StreamDock& panel) {
         const Settings original=panel.store_.current;

@@ -61,6 +61,12 @@ jobs:
           if (!(Test-Path package/stream-notify/bin/64bit/stream-notify.dll)) { throw "Plugin DLL missing" }
           if (!(Test-Path package/stream-notify/data/qt-plugins/tls/qschannelbackend.dll)) { throw "TLS backend missing" }
           Get-ChildItem package/stream-notify -Recurse -Filter *.dll | Get-FileHash | Format-Table -AutoSize | Out-File package/SHA256.txt
+          $spec = Get-Content buildspec.json -Raw | ConvertFrom-Json
+          $dlls = @(Get-ChildItem package/stream-notify -Recurse -Filter *.dll | ForEach-Object {
+            $signature = Get-AuthenticodeSignature -LiteralPath $_.FullName
+            [ordered]@{ file = $_.FullName.Substring((Resolve-Path package).Path.Length + 1); sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash; signature = [string]$signature.Status }
+          })
+          [ordered]@{ product='Stream Notify'; version=$spec.version; commit=$env:GITHUB_SHA; run=$env:GITHUB_RUN_ID; obs='33.0.0'; qt='6.11.1'; packageType='unsigned-test-build'; files=$dlls } | ConvertTo-Json -Depth 5 | Set-Content package/BUILD_INFO.json -Encoding utf8
       - name: Verify packaged TLS and Telegram HTTPS without credentials
         shell: pwsh
         run: |
@@ -74,3 +80,4 @@ jobs:
           name: StreamNotify-Test-DLL-OBS33-Windows-x64
           path: package/
           if-no-files-found: error
+
