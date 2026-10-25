@@ -13,6 +13,7 @@ namespace sn {class OutputPanel;class ResourcePanel;}
 #include <QVBoxLayout>
 
 class CountdownRing;
+class QPushButton;
 class StreamDock : public QWidget {
 #ifdef STREAM_NOTIFY_UI_PREVIEW
     friend struct DockPreview;
@@ -72,7 +73,8 @@ private:
     QVBoxLayout* root_ = nullptr;
     QLabel* title_ = nullptr;
     QPointer<QLabel> donationSummaryLabel_;
-    QPointer<QLabel> donationConnectionLabel_;
+    QPointer<QLabel> homeDaIndicator_,homeDpIndicator_;
+    QPointer<QPushButton> daLoginButton_;
     QPointer<sn::OutputPanel> outputPanel_;
     QPointer<sn::ResourcePanel> resourcePanel_;
     sn::StreamMonitor monitor_;

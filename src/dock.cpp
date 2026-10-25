@@ -130,6 +130,44 @@ QString serviceStatus(const QString& value,bool russian) {
     return names.value(value,value);
 }
 
+struct ConnectionView {QString text;int tone=0;};
+ConnectionView connectionView(const QString& state,bool ru) {
+    auto text=[ru](const char* a,const char* b){return QString::fromUtf8(ru?a:b);};
+    if(state=="Connected"||state.startsWith("API connected")||state.startsWith("API responded"))return {text("Подключён","Connected"),1};
+    if(state=="Disabled"||state=="Module disabled")return {text("Выключен","Off"),0};
+    if(state=="Not configured"||state=="API verification required")return {text("Не подключён","Not connected"),0};
+    if(state=="Waiting for stream")return {text("Ожидает эфир","Waiting for stream"),2};
+    if(state=="Waiting for browser authorization")return {text("Подтвердите вход","Confirm sign-in"),2};
+    if(state=="Connecting"||state=="Reconnecting"||state=="Verifying authorization")return {text("Подключаем…","Connecting…"),2};
+    if(state=="Rate limited")return {text("Подождите немного","Please wait"),2};
+    if(state=="Authorization cancelled or expired")return {text("Вход не завершён","Sign-in incomplete"),2};
+    if(state.contains("DonatePay")&&(state.contains("401")||state.contains("key")))return {text("Проверьте ключ","Check your key"),3};
+    if(state.contains("403")||state=="Missing user/socket scope")return {text("Нет разрешения","Permission needed"),3};
+    if(state.contains("401")||state=="Invalid or expired token"||state=="Invalid token format")return {text("Войдите снова","Sign in again"),3};
+    return {text("Нужна проверка","Check connection"),3};
+}
+void stylePill(QLabel* label,int tone) {
+    static const char* color[]={"#9cadc2","#45e6aa","#ffd166","#ff8d9c"};
+    static const char* background[]={"#14202d","#102b27","#302a19","#321e2b"};
+    const int index=std::clamp(tone,0,3);
+    label->setStyleSheet(QString("QLabel{color:%1;background:%2;border:0;border-radius:5px;padding:3px 6px;font-size:11px;font-weight:600;}").arg(color[index],background[index]));
+    label->setTextFormat(Qt::PlainText);label->setAlignment(Qt::AlignCenter);label->setMinimumHeight(20);
+}
+void updateConnectionPill(QLabel* label,const QString& raw,bool ru) {
+    if(!label)return;
+    if(label->property("connectionRaw").toString()==raw&&label->property("connectionRu").isValid()&&label->property("connectionRu").toBool()==ru)return;
+    const auto view=connectionView(raw,ru);label->setText(QString::fromUtf8("● ")+view.text);
+    stylePill(label,view.tone);label->setToolTip(serviceStatus(raw,ru));
+    label->setProperty("connectionRaw",raw);label->setProperty("connectionRu",ru);
+}
+QLabel* deliveryPill(const QString& channel,const QString& status) {
+    int tone=2;QString mark=QString::fromUtf8("?");
+    if(status.startsWith(QString::fromUtf8("✓"))){tone=1;mark=QString::fromUtf8("✓");}
+    else if(status.startsWith(QString::fromUtf8("✕"))){tone=3;mark="!";}
+    else if(status.contains(QString::fromUtf8("Отключ"))||status=="Disabled"){tone=0;mark=QString::fromUtf8("—");}
+    auto* result=new QLabel(channel+"  "+mark);stylePill(result,tone);result->setToolTip(channel+"\n"+status);return result;
+}
+
 QVBoxLayout* column(QWidget* w, int gap = 9, int padding = 12)
 {
     auto* v = new QVBoxLayout(w);
@@ -243,10 +281,12 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     connect(&donationConfigure_, &QTimer::timeout, &donation_, &DonationEngine::configure);
     connect(&donation_,&DonationEngine::credentialsChanged,this,[this]{rebuild();});
     connect(&donation_, &DonationEngine::updated, this, [this] {
-        if(daStatusLabel_) daStatusLabel_->setText(serviceStatus(donation_.daStatus(),isRu()));
-        if(dpStatusLabel_) dpStatusLabel_->setText(serviceStatus(donation_.dpStatus(),isRu()));
+        updateConnectionPill(daStatusLabel_,donation_.daStatus(),isRu());
+        updateConnectionPill(dpStatusLabel_,donation_.dpStatus(),isRu());
+        updateConnectionPill(homeDaIndicator_,donation_.daStatus(),isRu());
+        updateConnectionPill(homeDpIndicator_,donation_.dpStatus(),isRu());
+        if(daLoginButton_)daLoginButton_->setVisible(donation_.daStatus()!="Connected");
         if(donationSummaryLabel_)donationSummaryLabel_->setText(donationSummaryText());
-        if(donationConnectionLabel_)donationConnectionLabel_->setText(donationConnectionText());
         if(donationJournalLabel_) {
             const auto entries=donation_.journal();
             donationJournalLabel_->setText(entries.isEmpty()?uiText("Пока нет донатов","No donations yet"):entries.mid(0,6).join("\n"));
@@ -344,7 +384,7 @@ void StreamDock::rebuildNow()
     root_->setSpacing(store_.current.compact ? 3 : 5);
     title_ = nullptr;
     daStatusLabel_ = nullptr; dpStatusLabel_ = nullptr; donationJournalLabel_ = nullptr;
-    donationConnectionLabel_=nullptr;
+    homeDaIndicator_=nullptr;homeDpIndicator_=nullptr;daLoginButton_=nullptr;
     central_ = nullptr;
     auto* header = new QWidget;
     auto* h = new QHBoxLayout(header);
@@ -547,24 +587,36 @@ QWidget* StreamDock::buildHome()
     auto* announcementStatus=label(outcome,sent?"Good":"Hint");
     announcementStatus->setProperty("announcementStatus",true);
     v->addWidget(announcementStatus);
-    if(announcementAttempted_)v->addWidget(label(
-        "Telegram: "+statusName(telegram_)+"  ·  Discord: "+statusName(discord_),"Hint"));
-    else if(!store_.current.lastTime.isEmpty())v->addWidget(label(
-        uiText("Прошлый анонс: ","Previous announcement: ")+store_.current.lastTime+
-        "\nTelegram: "+store_.current.lastTelegram+"  ·  Discord: "+store_.current.lastDiscord,"Hint"));
+    if(announcementAttempted_||!store_.current.lastTime.isEmpty()){
+        const auto when=QDateTime::fromString(store_.current.lastTime,"yyyy-MM-dd HH:mm:ss");
+        if(when.isValid()){
+            const auto day=when.date()==QDate::currentDate()?uiText("Сегодня","Today"):when.toString("dd.MM");
+            v->addWidget(label(day+" · "+when.toString("HH:mm"),"Hint"));
+        }
+        auto* outcomes=new QHBoxLayout;outcomes->setSpacing(5);
+        outcomes->addWidget(deliveryPill("Telegram",announcementAttempted_?statusName(telegram_):store_.current.lastTelegram),1);
+        outcomes->addWidget(deliveryPill("Discord",announcementAttempted_?statusName(discord_):store_.current.lastDiscord),1);
+        v->addLayout(outcomes);
+    }
     delivery->setToolTip(store_.current.lastTime+"\nTelegram: "+store_.current.lastTelegram+"\nDiscord: "+store_.current.lastDiscord+"\n"+statusText_);
     outer->addWidget(delivery);
 
     auto* donations=card(&v);
     section(v,uiText("Донаты за эфир","Stream donations"));
     auto* donationSummary=label(donationSummaryText(),"Hint");donationSummaryLabel_=donationSummary;
+    donationSummary->setStyleSheet("font-size:13px;font-weight:600;color:#dce7f4;padding:2px 0;");
     donationSummary->setToolTip(uiText(
         "Полученные плагином реальные донаты за текущий/последний эфир, включая суммы ниже порога. Тесты и повторы исключены. Перезапуск OBS обнуляет эту сводку; журнал доставки сохраняется.",
         "Real donations observed during the current/last stream, including amounts below the announcement threshold. Tests and duplicates are excluded. This summary resets on OBS restart; delivery history remains saved."));
     v->addWidget(donationSummary);
     if(store_.current.donations.enabled){
-        donationConnectionLabel_=label(donationConnectionText(),"Hint");
-        v->addWidget(donationConnectionLabel_);
+        auto addConnection=[&](const QString& name,const QString& status,QPointer<QLabel>& target){
+            auto* row=new QHBoxLayout;row->setSpacing(6);auto* badge=new ServiceBadge(name);badge->setFixedSize(18,18);row->addWidget(badge);
+            row->addWidget(label(name,"Hint"),1);auto* indicator=new QLabel;target=indicator;
+            updateConnectionPill(indicator,status,isRu());row->addWidget(indicator);v->addLayout(row);
+        };
+        if(store_.current.donations.daEnabled)addConnection("DonationAlerts",donation_.daStatus(),homeDaIndicator_);
+        if(store_.current.donations.dpEnabled)addConnection("DonatePay",donation_.dpStatus(),homeDpIndicator_);
     }
     outer->addWidget(donations);
 
@@ -946,13 +998,14 @@ QWidget* StreamDock::buildDonations()
         QVBoxLayout* l;
         auto* box=card(&l);
         serviceSection(l,title);
-        addToggle(l,uiText("Подключить сервис", "Enable service"),enabled);
-        statusLabel=label(serviceStatus(status,isRu()),"Hint");
+        addToggle(l,uiText("Получать донаты", "Receive donations"),enabled);
+        statusLabel=new QLabel;
+        updateConnectionPill(statusLabel,status,isRu());
         l->addWidget(statusLabel);
         auto* edit=new QLineEdit(token);edit->setEchoMode(QLineEdit::Password);
         edit->setPlaceholderText(title=="DonatePay"
-            ?uiText("API-ключ DonatePay","DonatePay API key")
-            :uiText("OAuth-токен DonationAlerts","DonationAlerts OAuth token"));
+            ?uiText("Вставьте ключ из кабинета DonatePay","Paste your DonatePay account key")
+            :uiText("Заполнится после входа","Filled after sign-in"));
         edit->setAccessibleName(title=="DonatePay"?uiText("API-ключ DonatePay","DonatePay API key"):
             uiText("OAuth-токен DonationAlerts","DonationAlerts OAuth token"));
         connect(edit,&QLineEdit::textChanged,this,[this,value=&token](const QString& text){*value=text;changeSettings();});
@@ -962,42 +1015,38 @@ QWidget* StreamDock::buildDonations()
         if(title=="DonationAlerts"){
             auto* login=btn(uiText("Войти в DonationAlerts","Sign in to DonationAlerts"));
             login->setObjectName("DonationAlertsLogin");
+            daLoginButton_=login;login->setVisible(status!="Connected");
             connect(login,&QPushButton::clicked,this,[this]{donation_.beginDonationAlertsLogin();});
             l->addWidget(login);
-            l->addWidget(label(uiText(
-            "Нужен OAuth access token для API. Токен виджета оповещений не подходит.",
-            "Requires an API OAuth access token. Alert widget tokens do not work."),"Hint"));
         }
-        auto* verify=btn(uiText("Проверить подключение", "Check connection"));
+        auto* verify=btn(uiText("Проверить", "Check"));
         connect(verify,&QPushButton::clicked,this,[this,title,test] {
-            const auto& settings=store_.current.donations;
+            auto& settings=store_.current.donations;
             const bool donatePay=title=="DonatePay";
             QString reason;
             if(!settings.enabled)reason=uiText("Включите модуль донатов вверху этой страницы.","Enable the donation module at the top of this page.");
-            else if(!(donatePay?settings.dpEnabled:settings.daEnabled))reason=uiText("Включите «Подключить сервис» в этой карточке.","Turn on Enable service in this card.");
-            else if((donatePay?settings.dpToken:settings.daToken).isEmpty())reason=uiText("Сначала введите ключ сервиса в поле этой карточки.","Enter the service key in this card first.");
-            else if(donatePay && !settings.legacyApiOptIn)reason=uiText("Разрешите экспериментальный API DonatePay внизу этой карточки.","Allow the experimental DonatePay API at the bottom of this card.");
+            else if(!(donatePay?settings.dpEnabled:settings.daEnabled))reason=uiText("Включите «Получать донаты» в этой карточке.","Turn on Receive donations in this card.");
+            else if((donatePay?settings.dpToken:settings.daToken).isEmpty())reason=donatePay?
+                uiText("Вставьте ключ из вашего кабинета DonatePay. Кнопка «?» откроет нужную страницу.","Paste the key from your DonatePay account. The ? button opens the right page."):
+                uiText("Нажмите «Войти в DonationAlerts» и подтвердите подключение в браузере.","Click Sign in to DonationAlerts and confirm in your browser.");
             else if(settings.onlyLive && !broadcasting_)reason=uiText(
                 "В разделе «Отправка» включено «Только во время стрима».\nНачните эфир в OBS/Aitum или выключите это ограничение для проверки.",
                 "Only while streaming is enabled under Delivery.\nGo live with OBS/Aitum or turn this restriction off to check the connection.");
             if(!reason.isEmpty()) {QMessageBox::information(this,title,reason);return;}
+            // Preserve the existing consent gate; an explicit Check action now
+            // enables the officially verified adapter without an extra jargon toggle.
+            if(donatePay&&!settings.legacyApiOptIn){settings.legacyApiOptIn=true;store_.scheduleSave();}
             test();
         });
         auto* help=btn("?");help->setFixedWidth(28);
-        help->setAccessibleName(uiText("Где взять ключ ","Where to get a key: ")+title);
-        help->setToolTip(help->accessibleName());
+        help->setAccessibleName(uiText("Помощь с подключением ","Connection help: ")+title);
+        help->setToolTip(title=="DonatePay"?uiText("Скопируйте ключ из своего кабинета. Подробности подключения доступны в журнале.","Copy your account key. Connection details are available in the log."):
+            uiText("Войдите через браузер. Ключ сохранится автоматически; ключ виджета здесь не нужен.","Sign in through your browser. The account key is saved automatically; a widget key is not needed."));
         connect(help,&QPushButton::clicked,this,[title] {
             QDesktopServices::openUrl(QUrl(title=="DonatePay"?"https://donatepay.ru/page/api":
                 "https://github.com/DIMI0007/stream-notify/blob/main/README_DONATIONS_RU.md#donationalerts"));
         });
         rowWith(l,verify,help);
-        if(title=="DonatePay") {
-            addToggle(l,uiText("Разрешить экспериментальный API","Allow experimental API"),s.legacyApiOptIn);
-            auto* note=label(uiText("Экспериментально • опрос каждые 30 сек.","Experimental • polling every 30 sec."),"Hint");
-            note->setToolTip(uiText("Совместимость API и приём реальных донатов требуют проверки на вашем аккаунте.",
-                "API compatibility and live donation ingestion must be verified on your account."));
-            l->addWidget(note);
-        }
         outer->addWidget(box);
     };
     addService("DonationAlerts",s.daEnabled,s.daToken,daStatusLabel_,donation_.daStatus(),[this]{donationConfigure_.stop();donation_.configure();donation_.checkDonationAlerts();});

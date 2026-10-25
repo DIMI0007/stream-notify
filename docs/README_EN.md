@@ -16,7 +16,7 @@ Stream Notify is a native OBS Studio dock for stream announcements and donation 
 | Stream-start announcements | The user confirmed delivery to both Telegram and Discord during a real stream using the restored previous build. |
 | Manual delivery tests | Confirmed by the user; they verify delivery, not donation ingestion. |
 | New output-history fixes and version 1.0.1 | Version 1.0.1 passed CI; OBS runtime validation of the new behavior is pending. |
-| DonationAlerts browser sign-in | Implemented using the documented Implicit Flow; real-account validation is pending. |
+| DonationAlerts browser sign-in | User confirmed browser consent and Connected status in OBS 1.0.1 after Centrifugo subscription acknowledgement. Receipt of a new real donation is still pending. |
 | DonatePay HTTP API | Current official method and response schema verified. The incorrect local key was replaced by the user. A new real donation has not yet been validated end to end. |
 | DonatePay WebSocket | Account authentication and subscription verified in a separate read-only probe. Incoming real donation mapping and recovery remain unverified; the plugin keeps its existing HTTP adapter. |
 | Code signing | SignPath application received; approval pending. Current CI artifacts are unsigned. |
