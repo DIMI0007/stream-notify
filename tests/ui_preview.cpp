@@ -1,5 +1,6 @@
 #include "../src/dock.hpp"
 #include <QApplication>
+#include <QDateTime>
 #include <QPushButton>
 #include <QCheckBox>
 #include <QDir>
