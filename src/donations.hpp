@@ -2,6 +2,7 @@
 #include "settings.hpp"
 #include "net.hpp"
 #include "donation_summary.hpp"
+#include "oauth_loopback.hpp"
 #include <QObject>
 #include <QMap>
 #include <QJsonObject>
@@ -58,11 +59,13 @@ public:
     void fetchRates(bool manual = false);
     QString ratesStatus() const;
     void checkDonationAlerts();
+    void beginDonationAlertsLogin();
     void checkDonatePay();
     void account(sn::BufferCensus& census) const;
     void previewTest(int level); // Explicit test; no fake event is inserted into ledger.
 Q_SIGNALS:
     void updated();
+    void credentialsChanged();
 private:
     void sendFrame(const QString& data);
     void daConnect();
@@ -81,6 +84,9 @@ private:
     Sender sender_;
     QNetworkAccessManager http_;
     QWebSocket websocket_;
+    OAuthLoopback daLogin_;
+    QPointer<QNetworkReply> daLoginReply_;
+    quint64 daLoginEpoch_=0;
     QTimer daRetry_, dpTimer_;
     DonationLedger ledger_;
     sn::DonationSession sessionStats_;
@@ -95,3 +101,4 @@ private:
     bool resettingSocket_ = false;
     bool ratesAttempted_ = false, ratesLoading_ = false;
 };
+

@@ -102,9 +102,22 @@ QString serviceStatus(const QString& value,bool russian) {
         {"Not configured",QString::fromUtf8("Введите токен")},
         {"API verification required",QString::fromUtf8("API требует проверки")},
         {"API responded (legacy, unverified)",QString::fromUtf8("API ответил — экспериментальный режим")},
+        {"API connected (HTTP polling)",QString::fromUtf8("API подключён — проверка новых донатов каждые 30 с")},
+        {"Incorrect DonatePay API key",QString::fromUtf8("Неверный API-ключ DonatePay — скопируйте ключ из кабинета API")},
+        {"DonatePay API error",QString::fromUtf8("DonatePay вернул ошибку API — проверьте кабинет")},
+        {"DonatePay authorization rejected (401)",QString::fromUtf8("Ключ DonatePay отклонён (401)")},
+        {"DonatePay authorization rejected (403)",QString::fromUtf8("Нет прав DonatePay API (403)")},
         {"Invalid or expired token",QString::fromUtf8("Токен недействителен или истёк")},
         {"OAuth token rejected (401)",QString::fromUtf8("OAuth-токен отклонён API (401)")},
         {"DonationAlerts permission denied (403)",QString::fromUtf8("Нет прав DonationAlerts API (403)")},
+        {"Waiting for browser authorization",QString::fromUtf8("Подтвердите вход в открывшемся браузере")},
+        {"Verifying authorization",QString::fromUtf8("Проверяем разрешение DonationAlerts…")},
+        {"Authorization cancelled or expired",QString::fromUtf8("Вход отменён или время ожидания истекло")},
+        {"Invalid authorization response",QString::fromUtf8("DonationAlerts вернул некорректный результат входа")},
+        {"Authorization verification failed",QString::fromUtf8("Не удалось проверить вход DonationAlerts")},
+        {"Cannot save authorization",QString::fromUtf8("Не удалось сохранить токен в защищённых настройках")},
+        {"Local authorization port unavailable",QString::fromUtf8("Порт входа 38561 занят. Закройте вторую копию OBS")},
+        {"Cannot open authorization browser",QString::fromUtf8("Не удалось открыть браузер для входа")},
         {"Invalid token format",QString::fromUtf8("Неверный формат OAuth-токена")},
         {"Unrecognized API response",QString::fromUtf8("Ответ API не распознан — проверьте ключ и метод")},
         {"Rate limited",QString::fromUtf8("Лимит запросов — подождите")},
@@ -228,6 +241,7 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     donationConfigure_.setSingleShot(true);
     donationConfigure_.setInterval(1400);
     connect(&donationConfigure_, &QTimer::timeout, &donation_, &DonationEngine::configure);
+    connect(&donation_,&DonationEngine::credentialsChanged,this,[this]{rebuild();});
     connect(&donation_, &DonationEngine::updated, this, [this] {
         if(daStatusLabel_) daStatusLabel_->setText(serviceStatus(donation_.daStatus(),isRu()));
         if(dpStatusLabel_) dpStatusLabel_->setText(serviceStatus(donation_.dpStatus(),isRu()));
@@ -945,9 +959,15 @@ QWidget* StreamDock::buildDonations()
         auto* reveal=btn(uiText("Показать", "Show"));
         connect(reveal,&QPushButton::clicked,this,[edit]{edit->setEchoMode(edit->echoMode()==QLineEdit::Password?QLineEdit::Normal:QLineEdit::Password);});
         rowWith(l,edit,reveal);
-        if(title=="DonationAlerts")l->addWidget(label(uiText(
+        if(title=="DonationAlerts"){
+            auto* login=btn(uiText("Войти в DonationAlerts","Sign in to DonationAlerts"));
+            login->setObjectName("DonationAlertsLogin");
+            connect(login,&QPushButton::clicked,this,[this]{donation_.beginDonationAlertsLogin();});
+            l->addWidget(login);
+            l->addWidget(label(uiText(
             "Нужен OAuth access token для API. Токен виджета оповещений не подходит.",
             "Requires an API OAuth access token. Alert widget tokens do not work."),"Hint"));
+        }
         auto* verify=btn(uiText("Проверить подключение", "Check connection"));
         connect(verify,&QPushButton::clicked,this,[this,title,test] {
             const auto& settings=store_.current.donations;

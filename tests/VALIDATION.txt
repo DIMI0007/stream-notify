@@ -2,6 +2,10 @@ Stream Notify — current validation status
 
 2026-10-26 USER CONFIRMED: restored pre-fix DLL (SHA256 DF6C35BC5B08948FFEA767AEB58F8FB895079856E1033DFA11497BCBA35D8C37) loaded in OBS; real stream-start announcement reached both Telegram and Discord, with a Discord screenshot. This is validation of the restored previous build, not of the new fixes. The earlier intermittent Discord failure has not been reproduced or assigned a confirmed root cause.
 
+2026-10-26 ACCOUNT CHECK: saved previous DonatePay key returned HTTP 200 with status=error/message=Incorrect token. The current key from the official API dashboard returned a success envelope with transaction currency. User replaced the key locally and confirmed the old plugin's API-response status. No key or donor message is recorded here.
+2026-10-26 ACCOUNT CHECK: official DonatePay v2 socket/token endpoint issued a connection token; a read-only WebSocket probe received a successful subscription reply (id=2, result with expires/ttl, no error). This does NOT prove live donation receipt, delivery, recovery, or transaction/notification ID equivalence.
+PENDING: real-account end-to-end check of the newly added DonationAlerts browser sign-in and real donations from both providers. No manual test notification is treated as proof of ingestion.
+
 PASS: Windows x64 build for OBS 33.0.0 / Qt 6.11.1.
 PASS: C++ donation threshold and fixed-rate conversion tests.
 PASS: Telegram channel-link normalization tests.

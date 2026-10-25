@@ -65,6 +65,7 @@ add_library(${CMAKE_PROJECT_NAME} MODULE
   src/net.cpp
   src/dock.cpp
   src/donations.cpp
+  src/oauth_loopback.hpp
 )
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE src)
@@ -86,6 +87,25 @@ set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_nam
 install(FILES "$<TARGET_FILE:Qt6::WebSockets>" DESTINATION "${CMAKE_PROJECT_NAME}/bin/64bit")
 
 enable_testing()
+add_executable(stream-notify-oauth-tests tests/test_oauth_loopback.cpp src/oauth_loopback.hpp)
+target_link_libraries(stream-notify-oauth-tests PRIVATE Qt6::Core Qt6::Network)
+add_test(NAME oauth-loopback-security COMMAND stream-notify-oauth-tests)
+set_tests_properties(oauth-loopback-security PROPERTIES
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>")
+
+add_executable(stream-notify-protocol-tests tests/test_donation_protocol.cpp
+  src/settings.cpp src/settings.hpp src/net.cpp src/net.hpp
+  src/donations.cpp src/donations.hpp src/oauth_loopback.hpp)
+get_target_property(_protocol_obs_includes OBS::libobs INTERFACE_INCLUDE_DIRECTORIES)
+get_target_property(_protocol_frontend_includes OBS::obs-frontend-api INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(stream-notify-protocol-tests PRIVATE src ${_protocol_obs_includes} ${_protocol_frontend_includes})
+target_link_libraries(stream-notify-protocol-tests PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::WebSockets crypt32 SIMDe::SIMDe)
+target_compile_definitions(stream-notify-protocol-tests PRIVATE STREAM_NOTIFY_UI_PREVIEW QT_NO_KEYWORDS WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(stream-notify-protocol-tests PRIVATE /utf-8 "/FI${CMAKE_CURRENT_SOURCE_DIR}/tests/preview_glue.hpp")
+add_test(NAME donation-protocol-and-restart COMMAND stream-notify-protocol-tests)
+set_tests_properties(donation-protocol-and-restart PROPERTIES
+  ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::Core>;PATH=path_list_prepend:$<TARGET_FILE_DIR:Qt6::WebSockets>")
+
 add_executable(stream-notify-logic-tests tests/test_logic.cpp)
 if(MSVC)
   target_compile_options(stream-notify-logic-tests PRIVATE /UNDEBUG /utf-8)
@@ -102,7 +122,7 @@ set_tests_properties(telegram-channel-links PROPERTIES
 add_executable(stream-notify-ui-preview
   tests/ui_preview.cpp src/brand_icons.qrc
   src/dock.cpp src/dock.hpp src/settings.cpp src/settings.hpp
-  src/net.cpp src/net.hpp src/donations.cpp src/donations.hpp)
+  src/net.cpp src/net.hpp src/donations.cpp src/donations.hpp src/oauth_loopback.hpp)
 get_target_property(_obs_includes OBS::libobs INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(_frontend_includes OBS::obs-frontend-api INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(stream-notify-ui-preview PRIVATE src ${_obs_includes} ${_frontend_includes})
