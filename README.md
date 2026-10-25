@@ -166,3 +166,9 @@ CI проверяет сборку, логику валют, Telegram-ссылк
 Спасибо за поддержку!
 
 developed by [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/).
+
+## Code signing policy
+
+Подпись Windows-сборок пока не настроена. Готовится заявка на бесплатную подпись через SignPath; одобрение ещё не получено. Текущие артефакты CI не подписаны и могут блокироваться Windows Smart App Control.
+
+[Code signing policy](docs/CODE_SIGNING.md) · [Privacy policy](PRIVACY.md).
