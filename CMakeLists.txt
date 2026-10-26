@@ -64,6 +64,8 @@ add_library(${CMAKE_PROJECT_NAME} MODULE
   src/settings.cpp
   src/net.cpp
   src/dock.cpp
+  src/platform_probe.cpp
+  src/platform_probe.hpp
   src/donations.cpp
   src/oauth_loopback.hpp
 )
@@ -121,7 +123,7 @@ set_tests_properties(telegram-channel-links PROPERTIES
 # Render and exercise the actual Qt dock without OBS host state or service tokens.
 add_executable(stream-notify-ui-preview
   tests/ui_preview.cpp src/brand_icons.qrc
-  src/dock.cpp src/dock.hpp src/settings.cpp src/settings.hpp
+  src/dock.cpp src/dock.hpp src/platform_probe.cpp src/platform_probe.hpp src/settings.cpp src/settings.hpp
   src/net.cpp src/net.hpp src/donations.cpp src/donations.hpp src/oauth_loopback.hpp)
 get_target_property(_obs_includes OBS::libobs INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(_frontend_includes OBS::obs-frontend-api INTERFACE_INCLUDE_DIRECTORIES)
