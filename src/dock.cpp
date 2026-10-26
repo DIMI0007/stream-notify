@@ -394,6 +394,7 @@ void StreamDock::rebuildNow()
     auto* header = new QWidget;
     auto* h = new QHBoxLayout(header);
     h->setContentsMargins(2,2,2,2);
+    h->setSpacing(7);
     h->addWidget(new ServiceBadge("Stream Notify"));
     auto* t = label("Stream Notify", "Title");
     title_ = t;
@@ -441,12 +442,13 @@ void StreamDock::rebuildNow()
         scroll->setWidget(central_);central_=scroll;
     }
     root_->addWidget(central_, 1);
-    root_->addWidget(new CreditFooter(this));
+    auto* footer=new QVBoxLayout;footer->setSpacing(0);
+    footer->addWidget(new CreditFooter(this));
     auto* trafficFooter=new QLabel(this);trafficFooter->setObjectName("SessionTrafficFooter");trafficFooter->setAlignment(Qt::AlignCenter);
     trafficFooter->setStyleSheet("color:#72e9f4;font-size:10px;");
     trafficFooter->setToolTip(uiText("Трафик HTTP и WebSocket этого плагина с запуска OBS; без видео и сетевых заголовков",
         "This plugin's HTTP and WebSocket data since OBS started; excludes video and network headers"));
-    trafficFooter_=trafficFooter;root_->addWidget(trafficFooter);
+    trafficFooter_=trafficFooter;footer->addWidget(trafficFooter);root_->addLayout(footer);
     trafficFooter->setText(uiText("Трафик за сеанс · ","Session traffic · ")+QString::fromUtf8("↑ ")+sn::volume(double(usage_.txTotal),isRu())+
         QString::fromUtf8("  |  ↓ ")+sn::volume(double(usage_.rxTotal),isRu()));
     if(!pendingFocus_.isEmpty()) {
