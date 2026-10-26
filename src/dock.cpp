@@ -231,7 +231,7 @@ QLabel* paragraph(const QString& text, QWidget* parent = nullptr)
 class CreditFooter final : public QWidget {
 public:
     explicit CreditFooter(QWidget* parent=nullptr):QWidget(parent) {
-        setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);setCursor(Qt::PointingHandCursor);setAttribute(Qt::WA_OpaquePaintEvent);
+        setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);setAttribute(Qt::WA_OpaquePaintEvent);
         setAccessibleName("developed by OTMOPOZOK — YouTube");
         setToolTip(QString("Stream Notify %1 (%2)\nhttps://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/").arg(STREAM_NOTIFY_VERSION,STREAM_NOTIFY_BUILD));
     }
@@ -261,11 +261,11 @@ protected:
     }
     void mouseMoveEvent(QMouseEvent* event) override {
         const bool next=nickRect_.contains(event->position());
-        if(next!=hover_){hover_=next;update();}
+        if(next!=hover_){hover_=next;setCursor(next?Qt::PointingHandCursor:Qt::ArrowCursor);update();}
     }
-    void leaveEvent(QEvent*) override {hover_=false;update();}
+    void leaveEvent(QEvent*) override {hover_=false;setCursor(Qt::ArrowCursor);update();}
     void mouseReleaseEvent(QMouseEvent* event) override {
-        if(event->button()==Qt::LeftButton)openChannel();
+        if(event->button()==Qt::LeftButton && nickRect_.contains(event->position()))openChannel();
     }
     void keyPressEvent(QKeyEvent* event) override {
         if(event->key()==Qt::Key_Return||event->key()==Qt::Key_Enter||event->key()==Qt::Key_Space)openChannel();
