@@ -25,7 +25,7 @@ inline QLabel* text(const QString& value,const QString& role="Hint"){
 }
 class BitrateSparkline final : public QWidget {
 public:
-    explicit BitrateSparkline(QWidget* parent=nullptr):QWidget(parent){setFixedSize(60,30);}
+    explicit BitrateSparkline(QWidget* parent=nullptr):QWidget(parent){setFixedSize(48,30);}
     void setStats(const OutputStats& stats,const QString& platform){stats_=stats;platform_=platform;update();}
 protected:
     void paintEvent(QPaintEvent*)override{
@@ -75,12 +75,12 @@ public:
             for(const auto& v:outputs) {
                 auto* box=new QFrame;box->setObjectName("OutputTile");
                 box->setStyleSheet("QFrame#OutputTile{background:#0b1520;border:1px solid #2d4056;border-radius:7px;}");
-                auto* grid=new QGridLayout(box);grid->setContentsMargins(6,5,6,5);grid->setHorizontalSpacing(5);grid->setVerticalSpacing(2);
+                auto* grid=new QGridLayout(box);grid->setContentsMargins(5,5,5,5);grid->setHorizontalSpacing(4);grid->setVerticalSpacing(2);
                 grid->addWidget(new ServiceBadge(v.platform=="RTMP"?"Stream Notify":v.platform),0,0,2,1);
-                Row row;row.title=text(v.platform,"Section");row.state=text("","Hint");
+                Row row;row.title=text(v.platform,"Section");row.title->setWordWrap(false);row.state=text("","Hint");row.state->setWordWrap(false);
                 row.state->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
                 grid->addWidget(row.title,0,1);grid->addWidget(row.state,0,2);
-                row.rate=text("—");row.bytes=text("—");row.bytes->setAlignment(Qt::AlignRight);
+                row.rate=text("—");row.rate->setWordWrap(false);row.bytes=text("—");row.bytes->setWordWrap(false);row.bytes->setAlignment(Qt::AlignLeft);
                 row.rate->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
                 grid->addWidget(row.rate,0,3);grid->addWidget(row.bytes,1,1,1,3);
                 row.graph=new BitrateSparkline(box);grid->addWidget(row.graph,0,4,2,1);
@@ -96,12 +96,11 @@ public:
             const QString state=!s.active?phrase(ru_,"Не идёт","Offline"):s.reconnecting||!s.rateReady||!s.hasCounters?phrase(ru_,"Подключение","Connecting"):QStringLiteral("● LIVE");
             row.state->setText(state);
             row.state->setStyleSheet(s.active&&!s.reconnecting&&s.rateReady&&s.hasCounters?
-                "font-size:10px;font-weight:700;color:#fff;background:#e91635;border-radius:4px;padding:1px 4px;":
-                QString("font-size:10px;color:%1;").arg(s.reconnecting?"#ffcd57":"#8ea1c0"));
-            const QString rate=s.kbps>=1000?locale.toString(s.kbps/1000.0,'f',1)+phrase(ru_," Мбит/с"," Mbps"):
-                locale.toString(s.kbps,'f',0)+phrase(ru_," кбит/с"," kbps");
+                "font-size:9px;font-weight:700;color:#fff;background:#e91635;border-radius:4px;padding:1px 3px;":
+                QString("font-size:9px;color:%1;").arg(s.reconnecting?"#ffcd57":"#8ea1c0"));
+            const QString rate=locale.toString(s.kbps/1000.0,'f',1)+" Mbps";
             row.rate->setText(s.active&&s.rateReady&&s.hasCounters?rate:"—");
-            row.rate->setStyleSheet(QString("font-weight:600;color:%1;").arg(s.recentProblem?"#ff737d":"#72e9f4"));
+            row.rate->setStyleSheet(QString("font-size:10px;font-weight:600;color:%1;").arg(s.recentProblem?"#ff737d":"#72e9f4"));
             row.bytes->setText(placeholder?"—":locale.toString(double(s.bytes)/(1024.0*1024*1024),'f',2)+phrase(ru_," ГБ"," GiB"));
             row.bytes->setStyleSheet("font-weight:600;color:#dfe8ff;");
             row.graph->setStats(s,v.platform);
