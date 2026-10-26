@@ -32,9 +32,8 @@
   },
   "name": "stream-notify",
   "displayName": "Stream Notify",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "Stream Notify Contributors",
   "website": "https://github.com",
   "email": "stream-notify@example.invalid"
 }
-

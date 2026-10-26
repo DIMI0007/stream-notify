@@ -6,14 +6,14 @@
 | --- | --- |
 | ![Stream Notify home](screenshots/home.png) | ![Stream Notify LIVE status and bitrate graphs](screenshots/monitoring.png) |
 
-*Version 1.0.4 screenshots come from an isolated UI test host. Connections and streams shown are demonstration data.*
+*Version 1.0.5 screenshots come from an isolated UI test host. Connections and streams shown are demonstration data.*
 
 ## Verified status
 
 - Automatic announcements reached both Telegram and Discord during a real broadcast.
 - DonationAlerts browser sign-in was confirmed. Replaying an earlier donation delivered notifications to both destinations; a new payment after connection has not yet been checked.
 - DonatePay accepted the account API key and connected. Delivery from a new real donation has not yet been checked.
-- Version 1.0.4 built and passed automated UI checks. LIVE status and bitrate graphs still need a real OBS broadcast check.
+- Version 1.0.5 built and passed automated UI checks. LIVE status and bitrate graphs still need a real OBS broadcast check.
 
 ## Features
 

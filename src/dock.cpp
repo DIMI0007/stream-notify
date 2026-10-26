@@ -219,7 +219,7 @@ QLabel* paragraph(const QString& text, QWidget* parent = nullptr)
 class CreditFooter final : public QWidget {
 public:
     explicit CreditFooter(QWidget* parent=nullptr):QWidget(parent) {
-        setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);
+        setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);setCursor(Qt::PointingHandCursor);
         setAccessibleName("developed by OTMOPOZOK — YouTube");
         setToolTip(QString("Stream Notify %1 (%2)\nhttps://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/").arg(STREAM_NOTIFY_VERSION,STREAM_NOTIFY_BUILD));
     }
@@ -248,11 +248,11 @@ protected:
     }
     void mouseMoveEvent(QMouseEvent* event) override {
         const bool next=nickRect_.contains(event->position());
-        if(next!=hover_){hover_=next;setCursor(next?Qt::PointingHandCursor:Qt::ArrowCursor);update();}
+        if(next!=hover_){hover_=next;update();}
     }
-    void leaveEvent(QEvent*) override {hover_=false;setCursor(Qt::ArrowCursor);update();}
+    void leaveEvent(QEvent*) override {hover_=false;update();}
     void mouseReleaseEvent(QMouseEvent* event) override {
-        if(event->button()==Qt::LeftButton && nickRect_.contains(event->position()))openChannel();
+        if(event->button()==Qt::LeftButton)openChannel();
     }
     void keyPressEvent(QKeyEvent* event) override {
         if(event->key()==Qt::Key_Return||event->key()==Qt::Key_Enter||event->key()==Qt::Key_Space)openChannel();
@@ -280,7 +280,7 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     connect(&countdown_, &QTimer::timeout, this, &StreamDock::updateCountdown);
     resultTimer_.setSingleShot(true);
     connect(&resultTimer_, &QTimer::timeout, this, [this] { showPhase(Phase::Idle); });
-    root_ = column(this, 4, 5);
+    root_ = column(this, 5, 8);
     donationConfigure_.setSingleShot(true);
     donationConfigure_.setInterval(1400);
     connect(&donationConfigure_, &QTimer::timeout, &donation_, &DonationEngine::configure);

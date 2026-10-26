@@ -10,6 +10,8 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QCoreApplication>
+#include <QSettings>
+#include <QAction>
 #include <QSslSocket>
 #include <util/bmem.h>
 #include "dock.hpp"
@@ -23,6 +25,13 @@ QPointer<StreamDock> g_panel;
 bool g_registered = false;
 bool g_exiting = false;
 QString g_qtPluginPath;
+QString dockVisibilityPath(){char* path=obs_module_config_path("dock-visibility.ini");if(!path)return {};const QString value=QString::fromUtf8(path);bfree(path);return value;}
+void saveDockVisibility(){
+    auto* window=static_cast<QMainWindow*>(obs_frontend_get_main_window());
+    auto* dock=window?window->findChild<QDockWidget*>("stream-notify-dock"):nullptr;
+    const auto path=dockVisibilityPath();
+    if(dock&&!path.isEmpty()){QSettings saved(path,QSettings::IniFormat);saved.setValue("visible",dock->toggleViewAction()->isChecked());saved.sync();}
+}
 
 void installDock()
 {
@@ -36,22 +45,22 @@ void installDock()
         return;
     }
     g_panel = panel;
-    // OBS manages layout persistence. Force visibility only once upon fresh install.
+    // OBS stores geometry. Its dock registration starts hidden, so persist the
+    // user's visibility preference separately and restore it after registration.
     auto* dock = window->findChild<QDockWidget*>("stream-notify-dock");
     if(dock) {
-        char* path = obs_module_config_path("dock-initialized.flag");
-        if(path) {
-            QFile flag(QString::fromUtf8(path));
-            bfree(path);
-            if(!flag.exists()) {
-                if(QDir().mkpath(QFileInfo(flag).absolutePath()) && flag.open(QIODevice::WriteOnly)) {
-                    flag.write("1"); flag.close();
-                    dock->setFloating(false);
-                    window->addDockWidget(Qt::RightDockWidgetArea,dock);
-                    dock->show();
-                }
-            }
-        }
+        const auto path=dockVisibilityPath();
+        QTimer::singleShot(0,dock,[window,dock,path]{
+            if(path.isEmpty())return;
+            QSettings saved(path,QSettings::IniFormat);
+            const bool first=!saved.contains("visible");
+            if(first){dock->setFloating(false);window->addDockWidget(Qt::RightDockWidgetArea,dock);}
+            dock->setVisible(saved.value("visible",true).toBool());
+            QObject::connect(dock->toggleViewAction(),&QAction::toggled,dock,[path,window](bool visible){
+                if(path.isEmpty()||!window->isVisible()||window->isMinimized())return;
+                QSettings state(path,QSettings::IniFormat);state.setValue("visible",visible);state.sync();
+            });
+        });
     }
 }
 void onFrontend(enum obs_frontend_event event, void*)
@@ -67,6 +76,7 @@ void onFrontend(enum obs_frontend_event event, void*)
             if(g_panel) g_panel->refreshStreamingState();
             break;
         case OBS_FRONTEND_EVENT_EXIT:
+            saveDockVisibility();
             g_exiting = true;
             if(g_panel) g_panel->shutdown();
             break;
@@ -115,4 +125,3 @@ void obs_module_unload(void)
         g_qtPluginPath.clear();
     }
 }
-
