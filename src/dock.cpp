@@ -442,6 +442,13 @@ void StreamDock::rebuildNow()
     }
     root_->addWidget(central_, 1);
     root_->addWidget(new CreditFooter(this));
+    auto* trafficFooter=new QLabel(this);trafficFooter->setObjectName("SessionTrafficFooter");trafficFooter->setAlignment(Qt::AlignCenter);
+    trafficFooter->setStyleSheet("color:#72e9f4;font-size:10px;");
+    trafficFooter->setToolTip(uiText("Трафик HTTP и WebSocket этого плагина с запуска OBS; без видео и сетевых заголовков",
+        "This plugin's HTTP and WebSocket data since OBS started; excludes video and network headers"));
+    trafficFooter_=trafficFooter;root_->addWidget(trafficFooter);
+    trafficFooter->setText(uiText("Трафик за сеанс · ","Session traffic · ")+QString::fromUtf8("↑ ")+sn::volume(double(usage_.txTotal),isRu())+
+        QString::fromUtf8("  |  ↓ ")+sn::volume(double(usage_.rxTotal),isRu()));
     if(!pendingFocus_.isEmpty()) {
         QPointer<QLineEdit> field=findChild<QLineEdit*>(pendingFocus_);
         pendingFocus_.clear();
@@ -1671,5 +1678,6 @@ void StreamDock::refreshTelemetry() {
     }
     usage_=usageSampler_.sample(buffers);
     if(show){if(outputPanel_)outputPanel_->setOutputs(monitor_.views());if(resourcePanel_)resourcePanel_->setUsage(usage_);}
+    if(trafficFooter_)trafficFooter_->setText(uiText("Трафик за сеанс · ","Session traffic · ")+QString::fromUtf8("↑ ")+sn::volume(double(usage_.txTotal),isRu())+
+        QString::fromUtf8("  |  ↓ ")+sn::volume(double(usage_.rxTotal),isRu()));
 }
-

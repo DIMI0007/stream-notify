@@ -77,6 +77,7 @@ private:
     QPointer<QPushButton> daLoginButton_;
     QPointer<sn::OutputPanel> outputPanel_;
     QPointer<sn::ResourcePanel> resourcePanel_;
+    QPointer<QLabel> trafficFooter_;
     sn::StreamMonitor monitor_;
     sn::UsageSampler usageSampler_;
     sn::Usage usage_;
@@ -125,4 +126,3 @@ private:
     void changeSettings();
     void updateSaved(bool success);
 };
-
