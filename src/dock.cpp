@@ -59,9 +59,9 @@ QWidget#WaitingCard:hover { border-color:#695937; }
 QWidget#Card { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101925,stop:1 #0b131e); border: 1px solid #263244; border-radius: 8px; }
 QWidget#Card:hover { border-color:#38516d; }
 QLabel { color: #dfe8ff; background: transparent; }
-QLabel#Hint { color: #9baccc; }
+QLabel#Hint { color:#8ea1c0; font-size:11px; }
 QLabel#Title { color:#e7fff4; font-weight:700; font-size:17px; }
-QLabel#Section { color: #d6e5fa; font-size: 13px; font-weight: 700; }
+QLabel#Section { color:#edf3ff; font-size:13px; font-weight:700; }
 QLabel#Waiting { color:#ffdc45; font-weight:700; }
 QLabel#Good { color: #07df91; font-weight: 700; }
 QLabel#Bad { color: #ff8484; font-weight: 700; }
