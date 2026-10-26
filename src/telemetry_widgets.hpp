@@ -25,7 +25,10 @@ inline QLabel* text(const QString& value,const QString& role="Hint"){
 }
 class BitrateSparkline final : public QWidget {
 public:
-    explicit BitrateSparkline(QWidget* parent=nullptr):QWidget(parent){setFixedSize(48,30);}
+    explicit BitrateSparkline(QWidget* parent=nullptr):QWidget(parent){
+        setMinimumSize(48,30);setMaximumSize(90,30);
+        setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
+    }
     void setStats(const OutputStats& stats,const QString& platform){stats_=stats;platform_=platform;update();}
 protected:
     void paintEvent(QPaintEvent*)override{
@@ -84,7 +87,7 @@ public:
                 row.rate->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
                 grid->addWidget(row.rate,0,3);grid->addWidget(row.bytes,1,1,1,3);
                 row.graph=new BitrateSparkline(box);grid->addWidget(row.graph,0,4,2,1);
-                grid->setColumnStretch(1,1);
+                grid->setColumnStretch(1,1);grid->setColumnStretch(4,1);
                 rowsLayout_->addWidget(box);cards_.push_back(row);
             }
         }
