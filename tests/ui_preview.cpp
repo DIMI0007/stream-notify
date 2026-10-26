@@ -15,6 +15,11 @@
 #include <QLineEdit>
 #include <iostream>
 struct DockPreview {
+    static bool singleFooter(StreamDock& panel){
+        return panel.findChildren<QLabel*>("SessionTrafficFooter").size()==1&&
+               panel.findChildren<QLabel*>("Credit").size()==1;
+    }
+    static void rebuild(StreamDock& panel){panel.rebuild();}
     struct ServiceScene {Settings settings;QString da,dp;};
     static ServiceScene connectedServices(StreamDock& panel){
         ServiceScene previous{panel.store_.current,panel.donation_.daStatus_,panel.donation_.dpStatus_};
@@ -365,6 +370,11 @@ int main(int argc,char** argv) {
     if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+2)return 7;
     streamPreviewOutputs.clear();panel.refreshStreamingState();pump();
     std::cout<<"Multistream aggregate start, deduplication, last-stop and restart tests passed\\n";
+    for(int i=0;i<12;++i){
+        DockPreview::rebuild(panel);pump();
+        if(!DockPreview::singleFooter(panel))return 44;
+    }
+    std::cout<<"Footer survives repeated dock rebuilds without duplicate labels\n";
     panel.shutdown();
     std::cout<<"Dock navigation, language and compact-mode smoke tests passed\n";
 }
