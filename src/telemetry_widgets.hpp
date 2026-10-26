@@ -77,15 +77,15 @@ public:
             cards_.clear();keys_=keys;
             for(const auto& v:outputs) {
                 auto* box=new QFrame;box->setObjectName("OutputTile");
-                box->setStyleSheet("QFrame#OutputTile{background:#0b1520;border:1px solid #2d4056;border-radius:7px;}");
-                auto* grid=new QGridLayout(box);grid->setContentsMargins(5,5,5,5);grid->setHorizontalSpacing(4);grid->setVerticalSpacing(2);
+                box->setStyleSheet("QFrame#OutputTile{background:#0b1520;border:1px solid #2d4056;border-radius:7px;}QFrame#OutputTile:hover{background:#0e1a28;border-color:#38516d;}");
+                auto* grid=new QGridLayout(box);grid->setContentsMargins(6,5,6,5);grid->setHorizontalSpacing(5);grid->setVerticalSpacing(2);
                 grid->addWidget(new ServiceBadge(v.platform=="RTMP"?"Stream Notify":v.platform),0,0,2,1);
                 Row row;row.title=text(v.platform,"Section");row.title->setWordWrap(false);row.state=text("","Hint");row.state->setWordWrap(false);
                 row.state->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
-                grid->addWidget(row.title,0,1);grid->addWidget(row.state,0,2);
+                grid->addWidget(row.title,0,1);grid->addWidget(row.state,0,2,2,1,Qt::AlignVCenter);
                 row.rate=text("—");row.rate->setWordWrap(false);row.bytes=text("—");row.bytes->setWordWrap(false);row.bytes->setAlignment(Qt::AlignLeft);
                 row.rate->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
-                grid->addWidget(row.rate,0,3);grid->addWidget(row.bytes,1,1,1,3);
+                grid->addWidget(row.rate,0,3,2,1,Qt::AlignVCenter);grid->addWidget(row.bytes,1,1,1,3);
                 row.graph=new BitrateSparkline(box);grid->addWidget(row.graph,0,4,2,1);
                 grid->setColumnStretch(1,1);grid->setColumnStretch(4,1);
                 rowsLayout_->addWidget(box);cards_.push_back(row);
@@ -110,6 +110,7 @@ public:
             const QString details=phrase(ru_,"Передано за запуск выхода. Потери кадров: %1%.","Transferred during this output session. Dropped frames: %1%.").arg(locale.toString(s.dropPercent,'f',1))+
                 (s.recentProblem?phrase(ru_," Просадка %1 с назад."," Problem %1 s ago.").arg(s.problemAgeMs/1000):QString());
             row.bytes->setToolTip(details);row.rate->setToolTip(details);
+            row.graph->setToolTip(phrase(ru_,"График битрейта за последние 30 минут","Bitrate over the last 30 minutes"));
 
         }
     }
@@ -151,4 +152,3 @@ public:
 private:bool ru_;QLabel *cpu_,*memory_;
 };
 }
-

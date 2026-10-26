@@ -31,6 +31,8 @@
 #include <QGridLayout>
 #include <QUrl>
 #include <QDesktopServices>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QFont>
@@ -47,7 +49,9 @@ QWidget#PageBody, QWidget#ScrollViewport { background:#080f18; }
 QPushButton:disabled { color:#6c7890;border-color:#273246; }
 QWidget#StreamRoot { background: #080f18; color: #dfe8ff; }
 QWidget#WaitingCard { background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #211e16,stop:1 #0c151e);border:1px solid #51452b;border-radius:8px; }
+QWidget#WaitingCard:hover { border-color:#695937; }
 QWidget#Card { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101925,stop:1 #0b131e); border: 1px solid #263244; border-radius: 8px; }
+QWidget#Card:hover { border-color:#38516d; }
 QLabel { color: #dfe8ff; background: transparent; }
 QLabel#Hint { color: #9baccc; }
 QLabel#Title { font-weight: 750; font-size: 17px; }
@@ -156,9 +160,17 @@ void stylePill(QLabel* label,int tone) {
 void updateConnectionPill(QLabel* label,const QString& raw,bool ru) {
     if(!label)return;
     if(label->property("connectionRaw").toString()==raw&&label->property("connectionRu").isValid()&&label->property("connectionRu").toBool()==ru)return;
+    const bool changed=label->property("connectionRaw").isValid();
     const auto view=connectionView(raw,ru);label->setText(QString::fromUtf8("● ")+view.text);
     stylePill(label,view.tone);label->setToolTip(serviceStatus(raw,ru));
     label->setProperty("connectionRaw",raw);label->setProperty("connectionRu",ru);
+    if(changed&&label->isVisible()){
+        auto* effect=qobject_cast<QGraphicsOpacityEffect*>(label->graphicsEffect());
+        if(!effect){effect=new QGraphicsOpacityEffect(label);label->setGraphicsEffect(effect);}
+        if(auto* prior=effect->findChild<QPropertyAnimation*>()){prior->stop();prior->deleteLater();}
+        auto* fade=new QPropertyAnimation(effect,"opacity",effect);fade->setDuration(170);
+        fade->setStartValue(0.65);fade->setEndValue(1.0);fade->start(QAbstractAnimation::DeleteWhenStopped);
+    }
 }
 QWidget* deliveryIcon(const QString& channel,const QString& status) {
     int tone=2;QString mark=QString::fromUtf8("?");
@@ -219,13 +231,14 @@ QLabel* paragraph(const QString& text, QWidget* parent = nullptr)
 class CreditFooter final : public QWidget {
 public:
     explicit CreditFooter(QWidget* parent=nullptr):QWidget(parent) {
-        setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);setCursor(Qt::PointingHandCursor);
+        setFixedHeight(20);setMouseTracking(true);setFocusPolicy(Qt::StrongFocus);setCursor(Qt::PointingHandCursor);setAttribute(Qt::WA_OpaquePaintEvent);
         setAccessibleName("developed by OTMOPOZOK — YouTube");
         setToolTip(QString("Stream Notify %1 (%2)\nhttps://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/").arg(STREAM_NOTIFY_VERSION,STREAM_NOTIFY_BUILD));
     }
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
+        p.fillRect(rect(),QColor("#080f18"));
         QFont f=font();f.setPixelSize(11);p.setFont(f);
         const QFontMetricsF m(f);
         const QString prefix="developed by ",nick="OTMOPOZOK",version=" · v" STREAM_NOTIFY_VERSION;

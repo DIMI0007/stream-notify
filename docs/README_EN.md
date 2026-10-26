@@ -1,37 +1,40 @@
 # Stream Notify
 
-**OBS stream and donation announcements for Telegram and Discord.** It runs locally without a project-operated server. [Русский](../README.md).
+**Stream and donation announcements from OBS to Telegram and Discord.** The plugin runs on your computer without a project-operated server. [Русский](../README.md).
 
-| Home | During a broadcast |
+| Waiting for a stream | During a broadcast |
 | --- | --- |
-| ![Stream Notify home](screenshots/home.png) | ![Stream Notify LIVE status and bitrate graphs](screenshots/monitoring.png) |
+| ![Stream Notify home dock](screenshots/home.png) | ![Outputs, bitrate, and graphs](screenshots/monitoring.png) |
 
-*Version 1.0.5 screenshots come from an isolated UI test host. Connections and streams shown are demonstration data.*
-
-## Verified status
-
-- Automatic announcements reached both Telegram and Discord during a real broadcast.
-- DonationAlerts browser sign-in was confirmed. Replaying an earlier donation delivered notifications to both destinations; a new payment after connection has not yet been checked.
-- DonatePay accepted the account API key and connected. Delivery from a new real donation has not yet been checked.
-- Version 1.0.5 built and passed automated UI checks. LIVE status and bitrate graphs still need a real OBS broadcast check.
+*Version 1.0.6 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
 
 ## Features
 
-- One announcement per stream session, including multiple OBS/Aitum outputs.
-- Separate Telegram and Discord destinations, manual messages, and delivery tests.
-- DonationAlerts and DonatePay notifications with configurable thresholds and text.
-- A card per output with LIVE status, bitrate, a **30-minute** graph and transferred GB. Stopped-output totals remain visible until the next start.
-- Local settings with Windows-protected secrets.
+- Send one automatic stream announcement to Telegram and Discord when OBS/Aitum starts multiple outputs. Manual sending and delivery tests are available.
+- Set recipients, text, and announcement delay in the OBS dock. See the latest delivery result at a glance.
+- Receive DonationAlerts and DonatePay donation notifications with sender, amount, message, and configurable thresholds. [Donation setup](../README_DONATIONS_RU.md).
+- Monitor each output: **LIVE**, current bitrate, a graph of the last 30 minutes, and transferred data. Finished output totals stay visible until that output starts again.
+- View tracked plugin usage and session traffic. Settings and donation delivery history stay local; Windows protects stored secrets.
+
+## Verified status
+
+- An automatic announcement during a real stream reached both Telegram and Discord.
+- DonationAlerts browser sign-in and delivery of a replayed earlier donation to both destinations were confirmed. A new payment after connection still needs testing.
+- DonatePay accepted the account API key and connected. Delivery from a new real donation is not yet confirmed; this integration is experimental.
+- Version 1.0.6 is built and tested in CI. Restoring dock visibility on another PC still needs confirmation in OBS.
 
 ## Install
 
-1. Close OBS.
-2. [Download the artifact from the latest successful build](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml).
-3. Copy the entire `stream-notify` directory to `C:\ProgramData\obs-studio\plugins\`. Replace the complete directory when updating.
-4. Start OBS, open **Stream Notify**, configure destinations and use the test buttons.
+1. Close OBS and [download the latest successful build](https://github.com/DIMI0007/stream-notify/actions/workflows/build-test-windows.yml).
+2. Copy the entire `stream-notify` folder into `C:\ProgramData\obs-studio\plugins\`. Replace the whole folder when updating.
+3. Start OBS, open the **Stream Notify** dock, and configure recipients. Test buttons verify sending without a live stream.
 
-Test target: **OBS 33.0.0 on Windows x64**. The archive is currently unsigned. `BUILD_INFO.json` contains the version and source revision.
+Target: **OBS 33, Windows x64**. `BUILD_INFO.json` in the archive identifies the version and source revision. The build is currently unsigned.
 
-[GPL v2 license](../LICENSE) · [Privacy](../PRIVACY.md) · [Donation guide in Russian](../README_DONATIONS_RU.md)
+[Donation guide](../README_DONATIONS_RU.md) · [GPL v2 license](../LICENSE) · [Privacy](../PRIVACY.md)
+
+## Support development
+
+[DonationAlerts](https://www.donationalerts.com/r/otmopozok) · [DonatePay](https://donatepay.ru/don/OTMOPOZOK)
 
 Developed by [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/).

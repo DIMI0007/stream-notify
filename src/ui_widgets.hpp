@@ -50,7 +50,7 @@ protected:
 class ServiceBadge final : public QWidget {
 public:
     explicit ServiceBadge(const QString& name,QWidget* parent=nullptr):QWidget(parent),name_(name) {
-        setFixedSize(28,28);setAccessibleName(name);
+        setFixedSize(28,28);setAccessibleName(name);setToolTip(name);
         // Bundled official artwork: decode once per badge, never fetch at runtime.
         if(name_=="DonationAlerts") mark_.load(":/stream-notify/brands/donationalerts.png");
         else if(name_=="DonatePay") mark_.load(":/stream-notify/brands/donatepay.png");
