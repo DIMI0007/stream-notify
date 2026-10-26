@@ -93,9 +93,9 @@ public:
             const auto& v=outputs[i];const auto& s=v.stats;auto& row=cards_[i];
             row.title->setToolTip(v.name);
             const bool placeholder=v.key.startsWith("placeholder");
-            const QString state=!s.active?phrase(ru_,"Не идёт","Offline"):s.reconnecting?phrase(ru_,"Подключение","Connecting"):QStringLiteral("● LIVE");
+            const QString state=!s.active?phrase(ru_,"Не идёт","Offline"):s.reconnecting||!s.rateReady||!s.hasCounters?phrase(ru_,"Подключение","Connecting"):QStringLiteral("● LIVE");
             row.state->setText(state);
-            row.state->setStyleSheet(s.active&&!s.reconnecting?
+            row.state->setStyleSheet(s.active&&!s.reconnecting&&s.rateReady&&s.hasCounters?
                 "font-size:10px;font-weight:700;color:#fff;background:#e91635;border-radius:4px;padding:1px 4px;":
                 QString("font-size:10px;color:%1;").arg(s.reconnecting?"#ffcd57":"#8ea1c0"));
             const QString rate=s.kbps>=1000?locale.toString(s.kbps/1000.0,'f',1)+phrase(ru_," Мбит/с"," Mbps"):
