@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <deque>
 #include <optional>
+#include <array>
 
 namespace sn {
 struct OutputSample {
@@ -15,6 +16,8 @@ struct OutputStats {
     double kbps=0,dropPercent=0;
     uint64_t bytes=0,dropped=0;
     int64_t ageMs=0,problemAgeMs=0;
+    std::array<float,180> bitrateHistory{};
+    unsigned historyCount=0,historyNext=0;
 };
 class OutputHealth {
 public:
@@ -27,7 +30,7 @@ public:
         if(!live_) {
             live_=true;started_=last_=now;previous_=sample;
             out_={};out_.active=true;out_.bytes=sample.bytes;out_.dropped=sample.dropped;
-            frames_=sample.frames;recent_.reset();lowSince_.reset();rates_.clear();baseline_=0;
+            frames_=sample.frames;recent_.reset();lowSince_.reset();rates_.clear();baseline_=0;historyLast_=0;
             if(sample.reconnecting)recent_=now;
         } else if(now>last_) {
             const bool reset=sample.bytes<previous_.bytes || sample.frames<previous_.frames || sample.dropped<previous_.dropped;
@@ -42,6 +45,12 @@ public:
                 for(const auto& r:rates_){bytes+=r.bytes;elapsed+=r.ms;}
                 out_.kbps=elapsed>0?double(bytes)*8.0/double(elapsed):0;
                 out_.rateReady=true;
+                if(historyLast_==0||now-historyLast_>=10000){
+                    out_.bitrateHistory[out_.historyNext]=float(out_.kbps);
+                    out_.historyNext=(out_.historyNext+1)%out_.bitrateHistory.size();
+                    out_.historyCount=std::min<unsigned>(out_.historyCount+1,out_.bitrateHistory.size());
+                    historyLast_=now;
+                }
             }
             const double reference=sample.targetKbps>0?sample.targetKbps:baseline_;
             const bool warmed=now-started_>=10000;
@@ -67,7 +76,7 @@ private:
     }
     struct Rate {uint64_t bytes;int64_t ms;};
     bool live_=false;
-    int64_t started_=0,last_=0;
+    int64_t started_=0,last_=0,historyLast_=0;
     uint64_t frames_=0;
     double baseline_=0;
     std::optional<int64_t> recent_,lowSince_;
@@ -76,3 +85,4 @@ private:
     std::deque<Rate> rates_;
 };
 }
+

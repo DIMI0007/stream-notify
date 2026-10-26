@@ -6,6 +6,9 @@
 #include <QLabel>
 #include <QLocale>
 #include <QToolButton>
+#include <QPainter>
+#include <QLinearGradient>
+#include <QPolygonF>
 
 namespace sn {
 inline QString phrase(bool ru,const char* russian,const char* english){return QString::fromUtf8(ru?russian:english);}
@@ -20,6 +23,35 @@ inline QLabel* text(const QString& value,const QString& role="Hint"){
     auto* label=new QLabel(value);label->setObjectName(role);label->setWordWrap(true);
     label->setMinimumWidth(0);return label;
 }
+class BitrateSparkline final : public QWidget {
+public:
+    explicit BitrateSparkline(QWidget* parent=nullptr):QWidget(parent){setFixedSize(60,30);}
+    void setStats(const OutputStats& stats,const QString& platform){stats_=stats;platform_=platform;update();}
+protected:
+    void paintEvent(QPaintEvent*)override{
+        QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
+        if(stats_.historyCount<2)return;
+        const QColor color=stats_.recentProblem?QColor("#ff737d"):
+            platform_=="YouTube"?QColor("#00df8c"):QColor("#ac69ff");
+        float maximum=1.0f;
+        for(unsigned i=0;i<stats_.historyCount;++i){
+            const auto index=(stats_.historyNext+stats_.bitrateHistory.size()-stats_.historyCount+i)%stats_.bitrateHistory.size();
+            maximum=std::max(maximum,stats_.bitrateHistory[index]);
+        }
+        QPolygonF points;
+        for(unsigned i=0;i<stats_.historyCount;++i){
+            const auto index=(stats_.historyNext+stats_.bitrateHistory.size()-stats_.historyCount+i)%stats_.bitrateHistory.size();
+            const qreal x=1.0+qreal(i)*qreal(width()-2)/qreal(stats_.historyCount-1);
+            const qreal y=height()-2-qreal(stats_.bitrateHistory[index]/maximum)*qreal(height()-8);
+            points<<QPointF(x,y);
+        }
+        QPolygonF area=points;area<<QPointF(points.last().x(),height()-1)<<QPointF(points.first().x(),height()-1);
+        QLinearGradient fill(0,0,0,height());QColor top=color;top.setAlpha(105);QColor bottom=color;bottom.setAlpha(5);
+        fill.setColorAt(0,top);fill.setColorAt(1,bottom);p.setPen(Qt::NoPen);p.setBrush(fill);p.drawPolygon(area);
+        p.setBrush(Qt::NoBrush);p.setPen(QPen(color,1.7,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.drawPolyline(points);
+    }
+private:OutputStats stats_;QString platform_;
+};
 class OutputPanel final : public QWidget {
 public:
     explicit OutputPanel(bool russian,QWidget* parent=nullptr):QWidget(parent),ru_(russian) {
@@ -43,14 +75,16 @@ public:
             for(const auto& v:outputs) {
                 auto* box=new QFrame;box->setObjectName("OutputTile");
                 box->setStyleSheet("QFrame#OutputTile{background:#0b1520;border:1px solid #2d4056;border-radius:7px;}");
-                auto* grid=new QGridLayout(box);grid->setContentsMargins(6,5,6,5);grid->setHorizontalSpacing(7);grid->setVerticalSpacing(3);
+                auto* grid=new QGridLayout(box);grid->setContentsMargins(6,5,6,5);grid->setHorizontalSpacing(5);grid->setVerticalSpacing(2);
                 grid->addWidget(new ServiceBadge(v.platform=="RTMP"?"Stream Notify":v.platform),0,0,2,1);
                 Row row;row.title=text(v.platform,"Section");row.state=text("","Hint");
                 row.state->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
                 grid->addWidget(row.title,0,1);grid->addWidget(row.state,0,2);
                 row.rate=text("—");row.bytes=text("—");row.bytes->setAlignment(Qt::AlignRight);
-                grid->addWidget(row.rate,1,1);grid->addWidget(row.bytes,1,2);
-                grid->setColumnStretch(1,1);grid->setColumnStretch(2,1);
+                row.rate->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
+                grid->addWidget(row.rate,0,3);grid->addWidget(row.bytes,1,1,1,3);
+                row.graph=new BitrateSparkline(box);grid->addWidget(row.graph,0,4,2,1);
+                grid->setColumnStretch(1,1);
                 rowsLayout_->addWidget(box);cards_.push_back(row);
             }
         }
@@ -59,13 +93,18 @@ public:
             const auto& v=outputs[i];const auto& s=v.stats;auto& row=cards_[i];
             row.title->setToolTip(v.name);
             const bool placeholder=v.key.startsWith("placeholder");
-            const QString state=!s.active?phrase(ru_,"Не идёт","Offline"):s.reconnecting?phrase(ru_,"Переподключение","Reconnecting"):
-                s.problemNow?phrase(ru_,"Нестабильно","Unstable"):s.rateReady&&s.hasCounters?phrase(ru_,"В эфире","Live"):phrase(ru_,"Нет данных","No data");
-            row.state->setText(state);row.state->setStyleSheet(QString("font-size:10px;color:%1;").arg(s.problemNow?"#ff737d":s.active?"#00df8c":"#8ea1c0"));
-            row.rate->setText(s.active&&s.rateReady&&s.hasCounters?locale.toString(s.kbps,'f',0)+phrase(ru_," кбит/с"," kbps"):"—");
+            const QString state=!s.active?phrase(ru_,"Не идёт","Offline"):s.reconnecting?phrase(ru_,"Подключение","Connecting"):QStringLiteral("● LIVE");
+            row.state->setText(state);
+            row.state->setStyleSheet(s.active&&!s.reconnecting?
+                "font-size:10px;font-weight:700;color:#fff;background:#e91635;border-radius:4px;padding:1px 4px;":
+                QString("font-size:10px;color:%1;").arg(s.reconnecting?"#ffcd57":"#8ea1c0"));
+            const QString rate=s.kbps>=1000?locale.toString(s.kbps/1000.0,'f',1)+phrase(ru_," Мбит/с"," Mbps"):
+                locale.toString(s.kbps,'f',0)+phrase(ru_," кбит/с"," kbps");
+            row.rate->setText(s.active&&s.rateReady&&s.hasCounters?rate:"—");
             row.rate->setStyleSheet(QString("font-weight:600;color:%1;").arg(s.recentProblem?"#ff737d":"#72e9f4"));
             row.bytes->setText(placeholder?"—":locale.toString(double(s.bytes)/(1024.0*1024*1024),'f',2)+phrase(ru_," ГБ"," GiB"));
             row.bytes->setStyleSheet("font-weight:600;color:#dfe8ff;");
+            row.graph->setStats(s,v.platform);
             const QString details=phrase(ru_,"Передано за запуск выхода. Потери кадров: %1%.","Transferred during this output session. Dropped frames: %1%.").arg(locale.toString(s.dropPercent,'f',1))+
                 (s.recentProblem?phrase(ru_," Просадка %1 с назад."," Problem %1 s ago.").arg(s.problemAgeMs/1000):QString());
             row.bytes->setToolTip(details);row.rate->setToolTip(details);
@@ -73,7 +112,7 @@ public:
         }
     }
 private:
-    struct Row {QLabel *title,*state,*rate,*bytes;};
+    struct Row {QLabel *title,*state,*rate,*bytes;BitrateSparkline* graph;};
     bool ru_;QVBoxLayout *layout_,*rowsLayout_;QWidget* rows_;QStringList keys_;QVector<Row> cards_;
 };
 class ResourcePanel final : public QWidget {
@@ -110,3 +149,4 @@ public:
 private:bool ru_;QLabel *cpu_,*memory_;
 };
 }
+
