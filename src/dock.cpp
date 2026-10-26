@@ -160,12 +160,17 @@ void updateConnectionPill(QLabel* label,const QString& raw,bool ru) {
     stylePill(label,view.tone);label->setToolTip(serviceStatus(raw,ru));
     label->setProperty("connectionRaw",raw);label->setProperty("connectionRu",ru);
 }
-QLabel* deliveryPill(const QString& channel,const QString& status) {
+QWidget* deliveryIcon(const QString& channel,const QString& status) {
     int tone=2;QString mark=QString::fromUtf8("?");
     if(status.startsWith(QString::fromUtf8("✓"))){tone=1;mark=QString::fromUtf8("✓");}
     else if(status.startsWith(QString::fromUtf8("✕"))){tone=3;mark="!";}
     else if(status.contains(QString::fromUtf8("Отключ"))||status=="Disabled"){tone=0;mark=QString::fromUtf8("—");}
-    auto* result=new QLabel(channel+"  "+mark);stylePill(result,tone);result->setToolTip(channel+"\n"+status);return result;
+    static const char* color[]={"#8ea1c0","#45e6aa","#ffd166","#ff8d9c"};
+    auto* result=new QWidget;auto* row=new QHBoxLayout(result);row->setContentsMargins(1,0,1,0);row->setSpacing(3);
+    auto* badge=new ServiceBadge(channel);badge->setFixedSize(18,18);row->addWidget(badge);
+    auto* state=new QLabel(mark);state->setStyleSheet(QString("color:%1;font-size:12px;font-weight:800;").arg(color[std::clamp(tone,0,3)]));
+    row->addWidget(state);result->setSizePolicy(QSizePolicy::Maximum,QSizePolicy::Fixed);
+    result->setToolTip(channel+"\n"+status);result->setAccessibleName(channel+": "+status);return result;
 }
 
 QVBoxLayout* column(QWidget* w, int gap = 9, int padding = 12)
@@ -588,15 +593,17 @@ QWidget* StreamDock::buildHome()
     announcementStatus->setProperty("announcementStatus",true);
     v->addWidget(announcementStatus);
     if(announcementAttempted_||!store_.current.lastTime.isEmpty()){
+        auto* historyRow=new QHBoxLayout;historyRow->setSpacing(7);
         const auto when=QDateTime::fromString(store_.current.lastTime,"yyyy-MM-dd HH:mm:ss");
         if(when.isValid()){
-            const auto day=when.date()==QDate::currentDate()?uiText("Сегодня","Today"):when.toString("dd.MM");
-            v->addWidget(label(day+" · "+when.toString("HH:mm"),"Hint"));
+            const auto moment=when.date()==QDate::currentDate()?when.toString("HH:mm"):when.toString("dd.MM · HH:mm");
+            historyRow->addWidget(label(uiText("Последний анонс · ","Last announcement · ")+moment,"Hint"),1);
+        } else {
+            historyRow->addStretch(1);
         }
-        auto* outcomes=new QHBoxLayout;outcomes->setSpacing(5);
-        outcomes->addWidget(deliveryPill("Telegram",announcementAttempted_?statusName(telegram_):store_.current.lastTelegram),1);
-        outcomes->addWidget(deliveryPill("Discord",announcementAttempted_?statusName(discord_):store_.current.lastDiscord),1);
-        v->addLayout(outcomes);
+        historyRow->addWidget(deliveryIcon("Telegram",announcementAttempted_?statusName(telegram_):store_.current.lastTelegram));
+        historyRow->addWidget(deliveryIcon("Discord",announcementAttempted_?statusName(discord_):store_.current.lastDiscord));
+        v->addLayout(historyRow);
     }
     delivery->setToolTip(store_.current.lastTime+"\nTelegram: "+store_.current.lastTelegram+"\nDiscord: "+store_.current.lastDiscord+"\n"+statusText_);
     outer->addWidget(delivery);
