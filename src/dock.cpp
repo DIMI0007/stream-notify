@@ -60,13 +60,14 @@ QWidget#Card { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101925,st
 QWidget#Card:hover { border-color:#38516d; }
 QLabel { color: #dfe8ff; background: transparent; }
 QLabel#Hint { color: #9baccc; }
-QLabel#Title { font-weight: 750; font-size: 17px; }
+QLabel#Title { color:#e7fff4; font-weight:700; font-size:17px; }
 QLabel#Section { color: #d6e5fa; font-size: 13px; font-weight: 700; }
 QLabel#Waiting { color:#ffdc45; font-weight:700; }
 QLabel#Good { color: #07df91; font-weight: 700; }
 QLabel#Bad { color: #ff8484; font-weight: 700; }
 QLabel#Count { color: #59dfff; font-weight: 750; font-size: 57px; }
 QPushButton { color: #e1ebff; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #202a3b,stop:1 #141d2b); border: 1px solid #39465d; border-radius: 8px; min-height: 20px; padding: 3px 7px; }
+QPushButton#ManualMessageShortcut,QPushButton#SettingsShortcut { padding:0; }
 QPushButton:hover { background:#26344d;border-color:#6476a0; }
 QPushButton:focus { border-color:#8a79ff; }
 QPushButton:pressed { background:#111b30; }
