@@ -29,6 +29,20 @@ int main(int argc,char** argv){
     require(donationLevel(usd,thresholds)==1,"Explicit foreign currency thresholds ignored");
     QTemporaryDir directory;require(directory.isValid(),"Temp directory unavailable");
     qputenv("STREAM_NOTIFY_PREVIEW_DIR",directory.path().toUtf8());SettingsStore store;
+    const QString mainTemplate="Live!\nYouTube: {youtube_url}\nTwitch: {twitch_url}\n{stream_url}";
+    QString problem;
+    const QString twitchOnly=renderAnnouncement(mainTemplate,{},"https://www.twitch.tv/test",{},&problem);
+    require(problem.isEmpty()&&twitchOnly.contains("https://www.twitch.tv/test")&&
+            !twitchOnly.contains("YouTube:")&&!twitchOnly.contains("{stream_url}"),"Twitch-only link rendering failed");
+    const QString youtubeOnly=renderAnnouncement(mainTemplate,"https://www.youtube.com/watch?v=abc",{}, {},&problem);
+    require(problem.isEmpty()&&youtubeOnly.contains("https://www.youtube.com/watch?v=abc")&&
+            !youtubeOnly.contains("Twitch:"),"YouTube-only link rendering failed");
+    const QString both=renderAnnouncement(mainTemplate,"https://www.youtube.com/watch?v=abc","https://www.twitch.tv/test",{},&problem);
+    require(problem.isEmpty()&&both.contains("YouTube:")&&both.contains("Twitch:"),"Two-platform link rendering failed");
+    store.current.deliveryJournal["main|youtube|id|telegram"]="sent";
+    require(store.save(),"Announcement delivery journal not saved");
+    SettingsStore restored;require(restored.load()&&restored.current.deliveryJournal.value("main|youtube|id|telegram")=="sent",
+                                   "Announcement delivery journal lost on restart");
     store.current.donations.enabled=true;store.current.donations.onlyLive=false;
     store.current.donations.toTelegram=false;store.current.donations.toDiscord=false;
     Donation below=donation;below.id="below-threshold";below.amount=30;

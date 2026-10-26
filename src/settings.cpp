@@ -287,6 +287,7 @@ QString renderAnnouncement(const QString& message,const QString& youtubeUrl,cons
     body.replace("{stream_url}",urls.join("\n")).replace("{platform}",platform);
     static const QRegularExpression unknown("\\{[A-Za-z_][A-Za-z0-9_]*\\}");
     if (unknown.match(body).hasMatch()) { if (error) *error = "Unsupported template variable"; return {}; }
+    body.replace(QRegularExpression("\\n{3,}"),"\n\n");
     body = body.trimmed();
     if (body.isEmpty()) { if (error) *error = "Message is empty"; return {}; }
     if (body.size() > 2000) { if (error) *error = "Message exceeds Discord 2000 character limit"; return {}; }

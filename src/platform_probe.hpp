@@ -61,6 +61,7 @@ private:
     QJsonObject youtubeToken_,twitchToken_;
     LivePlatform youtube_,twitch_;
     QString youtubeFallback_,twitchFallback_,twitchLogin_,twitchDevice_,twitchCode_,googleVerifier_;
+    QString lastYouTubeId_,lastTwitchId_;
     QDateTime twitchDeviceExpires_;
     bool youtubeLocal_=false,twitchLocal_=false,youtubeFromChat_=false,twitchFromChat_=false;
     bool youtubeBusy_=false,twitchBusy_=false,stopping_=false;

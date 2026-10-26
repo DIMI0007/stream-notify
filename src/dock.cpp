@@ -954,11 +954,13 @@ QWidget* StreamDock::buildConnections()
     v->addWidget(label(uiText("Можно войти здесь или использовать аккаунты Stream Chat. Защищённые токены Stream Chat читаются только для проверки эфира.",
                               "Sign in here or use Stream Chat accounts. Protected Stream Chat tokens are read only to verify live status."),"Hint"));
     v->addWidget(label(platforms_.youtubeAccount(),"Hint"));
+    if(!platforms_.youtube().error.isEmpty())v->addWidget(label(platforms_.youtube().error,"Hint"));
     auto* ytLogin=btn(uiText("Войти в YouTube","Sign in to YouTube"));
     connect(ytLogin,&QPushButton::clicked,this,[this]{platforms_.beginYouTubeLogin();});v->addWidget(ytLogin);
     auto* ytLogout=btn(uiText("Удалить вход Notify в YouTube","Remove Notify YouTube login"));
     connect(ytLogout,&QPushButton::clicked,this,[this]{platforms_.signOutYouTube();rebuild();});v->addWidget(ytLogout);
     v->addWidget(label(platforms_.twitchAccount(),"Hint"));
+    if(!platforms_.twitch().error.isEmpty())v->addWidget(label(platforms_.twitch().error,"Hint"));
     auto* twLogin=btn(uiText("Войти в Twitch","Sign in to Twitch"));
     connect(twLogin,&QPushButton::clicked,this,[this]{platforms_.beginTwitchLogin();});v->addWidget(twLogin);
     auto* twLogout=btn(uiText("Удалить вход Notify в Twitch","Remove Notify Twitch login"));
@@ -1643,7 +1645,20 @@ void StreamDock::onPlatformsChanged()
 {
     if(shuttingDown_)return;
     if(page_==Page::Connections)rebuild();
-    if(!broadcasting_||!mainDelivered_||!store_.current.secondAnnouncementEnabled)return;
+    if(!broadcasting_)return;
+    for(const QString platform:{QString("YouTube"),QString("Twitch")}){
+        const auto live=platform=="YouTube"?platforms_.youtube():platforms_.twitch();
+        const QString oldId=mainIds_.value(platform);
+        if(!oldId.startsWith("manual:")||!live.confirmed||live.phase!=sn::LivePhase::Live||live.id.isEmpty())continue;
+        for(const auto channel:{Channel::Telegram,Channel::Discord}){
+            const QString oldKey=announcementKey("main",platform,oldId,channel);
+            const QString newKey=announcementKey("main",platform,live.id,channel);
+            if(store_.current.deliveryJournal.contains(oldKey)&&!store_.current.deliveryJournal.contains(newKey))
+                store_.current.deliveryJournal[newKey]=store_.current.deliveryJournal.value(oldKey);
+        }
+        mainIds_[platform]=live.id;store_.save();
+    }
+    if(!mainDelivered_||!store_.current.secondAnnouncementEnabled)return;
     if(mainIds_.size()!=1)return;
     const QString other=mainIds_.contains("YouTube")?"Twitch":"YouTube";
     const auto live=other=="YouTube"?platforms_.youtube():platforms_.twitch();
@@ -1697,9 +1712,10 @@ void StreamDock::dispatch()
     const bool ytLive=youtube.phase==sn::LivePhase::Live&&!youtube.id.isEmpty()&&validStreamUrl(youtube.url);
     const bool twLive=twitch.phase==sn::LivePhase::Live&&!twitch.id.isEmpty()&&validStreamUrl(twitch.url);
     if(!ytLive&&!twLive){
+        cancelCurrent("No active platform");
         statusText_=uiText("Активные трансляции не подтверждены: анонс не отправлен",
                            "No active platform verified: announcement not sent");
-        cancelCurrent("No active platform");return;
+        rebuild();return;
     }
     if(ytLive)mainIds_["YouTube"]=youtube.id;
     if(twLive)mainIds_["Twitch"]=twitch.id;
@@ -1759,7 +1775,7 @@ void StreamDock::recordOutcome(Channel channel, const Delivery& delivery)
     for(const auto& key:keys)store_.current.deliveryJournal[key]=journalStatus;
     store_.save();
     if(delivery.status==Outcome::Sent)mainDelivered_=true;
-    const QString name = channel == Channel::Telegram ? "TELEGRAM" : "DISCORD";
+    const QString name = channel == Channel::Telegram ? "MAIN_TELEGRAM" : "MAIN_DISCORD";
     store_.addEvent(name + ": " + (delivery.status == Outcome::Sent ? "SENT" :
                               delivery.status == Outcome::Unknown ? "UNKNOWN" : "FAILED"));
 }
@@ -1773,7 +1789,7 @@ void StreamDock::complete()
         (discord_.detail.isEmpty()?QString():" — "+discord_.detail);
     store_.current.lastTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     store_.addEvent("SESSION_FINISHED");
-    verificationTimer_.setInterval(90000);
+    verificationTimer_.setInterval(60000);
     statusText_=uiText("Последняя рассылка завершена", "Last delivery completed");
     showPhase(Phase::Result);
     resultTimer_.start(session_.resultSeconds*1000);

@@ -37,8 +37,14 @@ bool manualPlatformUrl(const QString& raw,const QString& platform){
     const QUrl url(raw);
     if(url.scheme()!="https"||!url.userInfo().isEmpty()||!url.fragment().isEmpty())return false;
     const QString host=url.host().toLower();
-    if(platform=="YouTube")return host=="youtube.com"||host=="www.youtube.com"||host=="youtu.be";
-    return host=="twitch.tv"||host=="www.twitch.tv";
+    if(platform=="YouTube"){
+        if(host!="youtube.com"&&host!="www.youtube.com"&&host!="youtu.be")return false;
+        if(!url.hasQuery())return true;
+        const QUrlQuery query(url);
+        return url.path()=="/watch"&&query.queryItems().size()==1&&query.hasQueryItem("v")&&
+            query.queryItemValue("v").size()<=32;
+    }
+    return (host=="twitch.tv"||host=="www.twitch.tv")&&!url.hasQuery();
 }
 }
 
@@ -82,8 +88,12 @@ QString PlatformProbe::googleSecret()const{
     return {};
 #else
     char* raw=obs_module_file("google-oauth.json");if(!raw)return {};
-    QFile file(QString::fromUtf8(raw));bfree(raw);
-    if(!file.open(QIODevice::ReadOnly))return {};
+    const QString ownPath=QString::fromUtf8(raw);bfree(raw);
+    QFile file(ownPath);
+    if(!file.open(QIODevice::ReadOnly)){
+        file.setFileName(QDir(QFileInfo(ownPath).absolutePath()).absoluteFilePath("../stream-chat-obs/google-oauth.json"));
+        if(!file.open(QIODevice::ReadOnly))return {};
+    }
     const auto data=QJsonDocument::fromJson(file.readAll()).object();
     return data.value("client_id").toString()==googleClient?data.value("client_secret").toString():QString();
 #endif
@@ -96,21 +106,35 @@ QString PlatformProbe::twitchAccount()const{
     if(!available(twitchToken_))return "Twitch: connect account";
     return twitchFromChat_?"Twitch: Stream Chat account":"Twitch: Stream Notify account";
 }
-void PlatformProbe::setYouTube(LivePlatform value){youtube_=std::move(value);if(changed_)changed_();}
-void PlatformProbe::setTwitch(LivePlatform value){twitch_=std::move(value);if(changed_)changed_();}
+void PlatformProbe::setYouTube(LivePlatform value){
+    if(value.phase==LivePhase::Live&&value.confirmed)lastYouTubeId_=value.id;
+    if(value.phase==LivePhase::Offline)lastYouTubeId_.clear();
+    youtube_=std::move(value);if(changed_)changed_();
+}
+void PlatformProbe::setTwitch(LivePlatform value){
+    if(value.phase==LivePhase::Live&&value.confirmed)lastTwitchId_=value.id;
+    if(value.phase==LivePhase::Offline)lastTwitchId_.clear();
+    twitch_=std::move(value);if(changed_)changed_();
+}
 void PlatformProbe::failYouTube(const QString& reason){
     LivePlatform next=youtube_;next.error=reason;next.checkedAt=QDateTime::currentDateTimeUtc();
+    if(youtube_.confirmed&&youtube_.phase==LivePhase::Live){
+        next.phase=LivePhase::Reconnecting;next.confirmed=false;setYouTube(next);return;
+    }
     if(youtubeLocal_&&!youtubeFallback_.isEmpty()&&manualPlatformUrl(youtubeFallback_,"YouTube")){
         next.phase=LivePhase::Live;next.confirmed=false;next.url=youtubeFallback_;
-        next.id="manual:"+youtubeFallback_; // Stable across OBS restarts; a new direct URL permits a new announcement.
+        next.id=lastYouTubeId_.isEmpty()?"manual:"+youtubeFallback_:lastYouTubeId_;
     }else{next.phase=LivePhase::Error;next.confirmed=false;next.url.clear();next.id.clear();}
     setYouTube(next);
 }
 void PlatformProbe::failTwitch(const QString& reason){
     LivePlatform next=twitch_;next.error=reason;next.checkedAt=QDateTime::currentDateTimeUtc();
+    if(twitch_.confirmed&&twitch_.phase==LivePhase::Live){
+        next.phase=LivePhase::Reconnecting;next.confirmed=false;setTwitch(next);return;
+    }
     if(twitchLocal_&&!twitchFallback_.isEmpty()&&manualPlatformUrl(twitchFallback_,"Twitch")){
         next.phase=LivePhase::Live;next.confirmed=false;next.url=twitchFallback_;
-        next.id="manual:"+twitchFallback_;
+        next.id=lastTwitchId_.isEmpty()?"manual:"+twitchFallback_:lastTwitchId_;
     }else{next.phase=LivePhase::Error;next.confirmed=false;next.url.clear();next.id.clear();}
     setTwitch(next);
 }
@@ -125,6 +149,7 @@ void PlatformProbe::request(const QUrl& url,const QByteArray& method,const QByte
     if(method=="POST")req.setHeader(QNetworkRequest::ContentTypeHeader,"application/x-www-form-urlencoded");
     auto* reply=sn::watchReply(method=="GET"?http_.get(req):http_.post(req,body),body);
     replies_.insert(reply);reply->setReadBufferSize(1048576);const quint64 epoch=epoch_;
+    connect(reply,&QNetworkReply::readyRead,reply,[reply]{if(reply->bytesAvailable()>1048576)reply->abort();});
     connect(reply,&QNetworkReply::finished,this,[this,reply,epoch,done=std::move(done)]{
         replies_.remove(reply);const int http=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const QByteArray raw=reply->readAll().left(1048576);
@@ -144,7 +169,8 @@ void PlatformProbe::checkYouTube(){
     if(stopping_||youtubeBusy_)return;
     if(!available(youtubeToken_)){failYouTube("YouTube account not connected; sign in or use Stream Chat");return;}
     if(expired(youtubeToken_)){refreshYouTube();return;}
-    youtubeBusy_=true;LivePlatform starting=youtube_;starting.phase=LivePhase::Starting;setYouTube(starting);
+    youtubeBusy_=true;
+    if(!youtube_.confirmed){LivePlatform starting=youtube_;starting.phase=LivePhase::Starting;setYouTube(starting);}
     QUrl url("https://www.googleapis.com/youtube/v3/liveBroadcasts");QUrlQuery q;
     q.addQueryItem("part","id,status,snippet");q.addQueryItem("broadcastStatus","active");
     q.addQueryItem("broadcastType","all");q.addQueryItem("maxResults","50");url.setQuery(q);
@@ -170,7 +196,8 @@ void PlatformProbe::checkTwitch(){
     if(stopping_||twitchBusy_)return;
     if(!available(twitchToken_)){failTwitch("Twitch account not connected; sign in or use Stream Chat");return;}
     if(twitchLogin_.isEmpty()){validateTwitch();return;}
-    twitchBusy_=true;LivePlatform starting=twitch_;starting.phase=LivePhase::Starting;setTwitch(starting);
+    twitchBusy_=true;
+    if(!twitch_.confirmed){LivePlatform starting=twitch_;starting.phase=LivePhase::Starting;setTwitch(starting);}
     QUrl url("https://api.twitch.tv/helix/streams");QUrlQuery q;q.addQueryItem("user_login",twitchLogin_);url.setQuery(q);
     request(url,"GET",{},("Bearer "+twitchToken_.value("access_token").toString()).toUtf8(),twitchClient.toUtf8(),
         [this](int http,QJsonObject data){
