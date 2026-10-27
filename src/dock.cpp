@@ -1329,10 +1329,10 @@ public:
     explicit CountdownRing(QWidget* parent = nullptr) : QWidget(parent) {
         setMinimumSize(160,160);setMaximumSize(280,280);
         QSizePolicy policy(QSizePolicy::Preferred,QSizePolicy::Preferred);policy.setHeightForWidth(true);setSizePolicy(policy);
-        // Local repaint only, at 30 fps for the last ten visible seconds.
+        // Local repaint only, at 20 fps for the last ten visible seconds.
         // Sending still follows StreamDock's elapsed timer, independently.
         pulseTimer_.setParent(this);pulseTimer_.setObjectName("CountdownPulseTimer");
-        pulseTimer_.setInterval(33);
+        pulseTimer_.setInterval(50);
         connect(&pulseTimer_,&QTimer::timeout,this,[this]{update();});
     }
     QSize sizeHint() const override {return QSize(236,236);}
