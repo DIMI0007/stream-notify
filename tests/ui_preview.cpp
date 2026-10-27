@@ -23,6 +23,8 @@ int main(int argc,char** argv) {
         std::fprintf(stderr,"Capture %s laid out\n",file);std::fflush(stderr);
         auto* scroll=dock.findChild<QScrollArea*>();
         if(!scroll)return false;
+        const bool saved=dock.grab().save(output+"/"+QString::fromLatin1(file));
+        std::fprintf(stderr,"Capture %s saved=%d\n",file,int(saved));std::fflush(stderr);
         if(requireNoScroll&&scroll->verticalScrollBar()->maximum()>0){
             std::fprintf(stderr,"Unexpected vertical scroll at %dx%d: %d px\n",
                 width,height,scroll->verticalScrollBar()->maximum());return false;
@@ -31,8 +33,6 @@ int main(int argc,char** argv) {
         if(cards.size()!=3)return false;
         if(width>=680 && !(cards[0]->geometry().top()==cards[1]->geometry().top() &&
                            cards[1]->geometry().top()==cards[2]->geometry().top()))return false;
-        const bool saved=dock.grab().save(output+"/"+QString::fromLatin1(file));
-        std::fprintf(stderr,"Capture %s saved=%d\n",file,int(saved));std::fflush(stderr);
         return saved;
     };
     if(!capture("compact-720x260.png",720,260,true))return 1;

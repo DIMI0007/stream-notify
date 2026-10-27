@@ -30,10 +30,11 @@ jobs:
           & ./build_x64/RelWithDebInfo/stream-stats-ui-preview.exe ui-previews
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: StreamStats-UI-Previews
           path: ui-previews/*.png
-          if-no-files-found: error
+          if-no-files-found: ignore
       - name: Stage OBS plugin
         shell: pwsh
         run: |

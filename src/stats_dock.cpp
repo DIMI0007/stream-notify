@@ -308,7 +308,7 @@ void StatsDock::arrangeCards(){
         cards_->setColumnStretch(0,1);cards_->setColumnStretch(1,0);cards_->setColumnStretch(2,0);
         fpsChart_->show();
     }
-    const int chartHeight=roomy?155:wide?35:74;
+    const int chartHeight=roomy?155:wide?31:74;
     for(auto* chart:{systemChart_,fpsChart_,streamChart_,recordChart_})chart->setDisplayHeight(chartHeight);
     const int metricHeight=roomy?44:wide?14:20;
     const int metricFont=roomy?15:wide?10:11;
@@ -329,7 +329,8 @@ void StatsDock::arrangeCards(){
     for(auto* button:rangeButtons_)button->setFixedSize(roomy?48:34,roomy?32:23);
     for(auto* frame:{systemCard_,streamCard_,recordCard_}){
         auto* layout=static_cast<QVBoxLayout*>(frame->layout());
-        layout->setContentsMargins(roomy?13:7,roomy?10:5,roomy?13:7,roomy?10:5);
+        layout->setContentsMargins(roomy?13:7,roomy?10:wide?4:5,roomy?13:7,roomy?10:wide?4:5);
+        layout->setSpacing(wide&&!roomy?1:2);
     }
 }
 
