@@ -6,11 +6,11 @@
 | --- | --- |
 | ![Stream Notify home dock](screenshots/home.png) | ![Outputs, bitrate, and graphs](screenshots/monitoring.png) |
 
-*Version 1.0.6 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
+*Version 1.0.9 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
 
 ## Features
 
-- Send one automatic stream announcement to Telegram and Discord when OBS/Aitum starts multiple outputs. Manual sending and delivery tests are available.
+- Send an automatic announcement after the YouTube or Twitch API confirms a live broadcast. A second-platform announcement and manual fallback links are configurable. [Verification details](AUTO_ANNOUNCEMENTS_RU.md).
 - Set recipients, text, and announcement delay in the OBS dock. See the latest delivery result at a glance.
 - Receive DonationAlerts and DonatePay donation notifications with sender, amount, message, and configurable thresholds. [Donation setup](../README_DONATIONS_RU.md).
 - Monitor each output: **LIVE**, current bitrate, a graph of the last 30 minutes, and transferred data. Finished output totals stay visible until that output starts again.
@@ -21,7 +21,7 @@
 - An automatic announcement during a real stream reached both Telegram and Discord.
 - DonationAlerts browser sign-in and delivery of a replayed earlier donation to both destinations were confirmed. A new payment after connection still needs testing.
 - DonatePay accepted the account API key and connected. Delivery from a new real donation is not yet confirmed; this integration is experimental.
-- Version 1.0.6 is built and tested in CI. Restoring dock visibility on another PC still needs confirmation in OBS.
+- Version 1.0.9 is built and UI-tested in CI. Automatic links and deduplication still need validation during a real multistream.
 
 ## Install
 
