@@ -1,0 +1,2 @@
+#pragma once
+#define STREAM_STATS_VERSION "@PROJECT_VERSION@"

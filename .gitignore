@@ -1,0 +1,16 @@
+/.deps/
+/build_*/
+/package/
+/.vs/
+*.user
+*.suo
+*.pdb
+*.obj
+*.dll
+*.exe
+*.db
+*.sqlite*
+*.token
+*.secret
+oauth*.json
+google-oauth.json

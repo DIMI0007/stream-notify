@@ -1,0 +1,51 @@
+name: Build Stream Stats 1.0 (Windows)
+on:
+  push:
+    branches: ["codex/stream-stats-build"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure OBS 33 and plugin
+        run: cmake --preset windows-ci-x64
+      - name: Build Windows x64 DLL and preview
+        run: cmake --build --preset windows-x64 --config RelWithDebInfo --parallel
+      - name: Test stream aggregation and history
+        run: ctest --test-dir build_x64 -C RelWithDebInfo --output-on-failure
+      - name: Render responsive panels
+        shell: pwsh
+        run: |
+          $qtRoot = Join-Path $PWD ".deps/obs-deps-qt6-2026-10-23-x64"
+          $env:PATH = "$qtRoot/bin;$env:PATH"
+          $env:QT_PLUGIN_PATH = "$qtRoot/plugins"
+          $env:QT_QPA_PLATFORM = "offscreen"
+          & ./build_x64/RelWithDebInfo/stream-stats-ui-preview.exe ui-previews
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StreamStats-UI-Previews
+          path: ui-previews/*.png
+          if-no-files-found: error
+      - name: Stage OBS plugin
+        shell: pwsh
+        run: |
+          cmake --install build_x64 --config RelWithDebInfo --prefix package
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path package/stream-stats/bin/64bit/stream-stats.dll)) { throw "Plugin DLL missing" }
+          Copy-Item INSTALL_RU.md package/INSTALL_RU.md
+          $spec = Get-Content buildspec.json -Raw | ConvertFrom-Json
+          $dll = Get-Item package/stream-stats/bin/64bit/stream-stats.dll
+          [ordered]@{product='Stream Stats';version=$spec.version;commit=$env:GITHUB_SHA;obs='33.0.0';qt='6.11.1';packageType='unsigned-test-build';dllSha256=(Get-FileHash $dll.FullName -Algorithm SHA256).Hash}|ConvertTo-Json|Set-Content package/BUILD_INFO.json -Encoding utf8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: StreamStats-1.0.0-OBS33-Windows-x64
+          path: package/
+          if-no-files-found: error
