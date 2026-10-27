@@ -37,7 +37,10 @@ struct Settings {
     QString youtubeUrl;
     QString twitchUrl;
     QString message = QString::fromUtf8("🔴 НАЧАЛСЯ СТРИМ!\n\nСмотрите трансляцию:\n▶️ YouTube: {youtube}\n🎮 Twitch: {twitch}");
-    int sendDelay = 60;
+    bool secondAnnouncementEnabled = true;
+    QString secondMessage = QString::fromUtf8("🔴 Мы теперь и на {platform}!\n\n🎬 Подключайтесь: {stream_url}");
+    QMap<QString,QString> deliveryJournal;
+    int sendDelay = 120;
     int resultSeconds = 45;
     QString locale = "auto";
     bool compact = true;
@@ -56,7 +59,7 @@ struct Snapshot {
     QString chat;
     QString webhook;
     QString message;
-    int delay = 60;
+    int delay = 120;
     int resultSeconds = 45;
 };
 
@@ -83,4 +86,6 @@ bool validTelegram(const QString& token, const QString& chat);
 bool validDiscord(const QString& url);
 bool validStreamUrl(const QString& url);
 QString prepareMessage(const Settings& s, QString* validationError = nullptr);
+QString renderAnnouncement(const QString& message,const QString& youtubeUrl,const QString& twitchUrl,
+                           const QString& platform=QString(),QString* validationError=nullptr);
 Snapshot makeSnapshot(const Settings& s, QString* error = nullptr);

@@ -35,6 +35,7 @@
 #include <QPropertyAnimation>
 #include <QDateTime>
 #include <QRegularExpression>
+#include <QCryptographicHash>
 #include <QFont>
 #include <QMap>
 #include <QProgressBar>
@@ -43,6 +44,11 @@
 #include <algorithm>
 
 namespace {
+QString announcementKey(const QString& type,const QString& platform,const QString& id,Channel channel){
+    const auto digest=QCryptographicHash::hash(id.toUtf8(),QCryptographicHash::Sha256).toHex();
+    return type+"|"+platform+"|"+QString::fromLatin1(digest.constData())+"|"+
+        (channel==Channel::Telegram?"telegram":"discord");
+}
 const char* css = R"(
 QWidget { font-size: 12px; }
 QWidget#PageBody, QWidget#ScrollViewport { background:#080f18; }
@@ -53,14 +59,15 @@ QWidget#WaitingCard:hover { border-color:#695937; }
 QWidget#Card { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 #101925,stop:1 #0b131e); border: 1px solid #263244; border-radius: 8px; }
 QWidget#Card:hover { border-color:#38516d; }
 QLabel { color: #dfe8ff; background: transparent; }
-QLabel#Hint { color: #9baccc; }
-QLabel#Title { font-weight: 750; font-size: 17px; }
-QLabel#Section { color: #d6e5fa; font-size: 13px; font-weight: 700; }
+QLabel#Hint { color:#8ea1c0; font-size:11px; }
+QLabel#Title { color:#e7fff4; font-weight:700; font-size:17px; }
+QLabel#Section { color:#edf3ff; font-size:13px; font-weight:700; }
 QLabel#Waiting { color:#ffdc45; font-weight:700; }
 QLabel#Good { color: #07df91; font-weight: 700; }
 QLabel#Bad { color: #ff8484; font-weight: 700; }
 QLabel#Count { color: #59dfff; font-weight: 750; font-size: 57px; }
 QPushButton { color: #e1ebff; background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #202a3b,stop:1 #141d2b); border: 1px solid #39465d; border-radius: 8px; min-height: 20px; padding: 3px 7px; }
+QPushButton#ManualMessageShortcut,QPushButton#SettingsShortcut { min-width:30px;max-width:30px;min-height:28px;max-height:28px;border-radius:8px;padding:0; }
 QPushButton:hover { background:#26344d;border-color:#6476a0; }
 QPushButton:focus { border-color:#8a79ff; }
 QPushButton:pressed { background:#111b30; }
@@ -193,6 +200,14 @@ QVBoxLayout* column(QWidget* w, int gap = 9, int padding = 12)
     v->setContentsMargins(inset,inset,inset,inset);
     return v;
 }
+void clearLayoutItems(QLayout* layout)
+{
+    while (QLayoutItem* item = layout->takeAt(0)) {
+        if (QWidget* widget = item->widget()) delete widget;
+        else if (QLayout* nested = item->layout()) clearLayoutItems(nested);
+        delete item;
+    }
+}
 void rowWith(QVBoxLayout* v, QWidget* first, QWidget* last)
 {
     auto* h = new QHBoxLayout();
@@ -279,7 +294,7 @@ private:
     bool hover_=false;
 };
 
-StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_(this), testSender_(this), manualSender_(this), donation_(&store_,this)
+StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_(this), testSender_(this), manualSender_(this), secondSender_(this), platforms_(this), donation_(&store_,this)
 {
     setObjectName("StreamRoot");
     setAttribute(Qt::WA_StyledBackground,true);
@@ -293,6 +308,9 @@ StreamDock::StreamDock(QWidget* parent) : QWidget(parent), store_(this), sender_
     connect(&countdown_, &QTimer::timeout, this, &StreamDock::updateCountdown);
     resultTimer_.setSingleShot(true);
     connect(&resultTimer_, &QTimer::timeout, this, [this] { showPhase(Phase::Idle); });
+    verificationTimer_.setInterval(20000);
+    connect(&verificationTimer_,&QTimer::timeout,this,&StreamDock::probePlatforms);
+    platforms_.setChanged([this]{if(!shuttingDown_)onPlatformsChanged();});
     root_ = column(this, 5, 8);
     donationConfigure_.setSingleShot(true);
     donationConfigure_.setInterval(1400);
@@ -395,20 +413,18 @@ void StreamDock::rebuildNow()
     sn::CpuScope snCpuScope;
     // All text inputs continuously update SettingsStore::current, so rebuilding
     // for a language switch never discards uncommitted typed text.
-    while (QLayoutItem* item = root_->takeAt(0)) {
-        if (QWidget* w = item->widget()) delete w;
-        delete item;
-    }
-    root_->setSpacing(store_.current.compact ? 3 : 5);
+    clearLayoutItems(root_);
+    root_->setSpacing(5);
     title_ = nullptr;
     daStatusLabel_ = nullptr; dpStatusLabel_ = nullptr; donationJournalLabel_ = nullptr;
     homeDaIndicator_=nullptr;homeDpIndicator_=nullptr;daLoginButton_=nullptr;
     central_ = nullptr;
-    auto* header = new QWidget;
-    auto* h = new QHBoxLayout(header);
+    auto* h = new QHBoxLayout;
     h->setContentsMargins(2,2,2,2);
     h->setSpacing(7);
-    h->addWidget(new ServiceBadge("Stream Notify"));
+    auto* brand = new ServiceBadge("Stream Notify");
+    brand->setObjectName("HeaderBrand");
+    h->addWidget(brand);
     auto* t = label("Stream Notify", "Title");
     title_ = t;
     h->addWidget(t, 1);
@@ -433,7 +449,7 @@ void StreamDock::rebuildNow()
         showPage(page_==Page::Home||page_==Page::ManualMessage?Page::Connections:Page::Home);
     });
     h->addWidget(settingsButton);
-    root_->addWidget(header);
+    root_->addLayout(h);
 
     if (phase_ == Phase::Idle || page_ != Page::Home) central_ = buildRegular();
     else if (phase_ == Phase::Counting) central_ = buildCountdown();
@@ -455,13 +471,21 @@ void StreamDock::rebuildNow()
         scroll->setWidget(central_);central_=scroll;
     }
     root_->addWidget(central_, 1);
-    auto* footer=new QVBoxLayout;footer->setSpacing(0);
-    footer->addWidget(new CreditFooter(this));
+    auto* footerWidget=new QWidget(this);
+    footerWidget->setObjectName("Footer");
+    auto* footer=new QVBoxLayout(footerWidget);footer->setContentsMargins(0,0,0,0);footer->setSpacing(0);
+    auto* credit=new QLabel("developed by <a href=\"https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/\" style=\"color:#59dfff;text-decoration:none;\">OTMOPOZOK</a> · v" STREAM_NOTIFY_VERSION,footerWidget);
+    credit->setObjectName("Credit");credit->setTextFormat(Qt::RichText);
+    credit->setTextInteractionFlags(Qt::LinksAccessibleByMouse|Qt::LinksAccessibleByKeyboard);
+    credit->setOpenExternalLinks(true);credit->setAlignment(Qt::AlignCenter);
+    credit->setFixedHeight(20);credit->setStyleSheet("color:#9299a5;background:#080f18;font-size:11px;");
+    footer->addWidget(credit);
     auto* trafficFooter=new QLabel(this);trafficFooter->setObjectName("SessionTrafficFooter");trafficFooter->setAlignment(Qt::AlignCenter);
-    trafficFooter->setStyleSheet("color:#72e9f4;font-size:10px;");
+    trafficFooter->setStyleSheet("color:#72e9f4;font-size:10px;background:#080f18;");
+    trafficFooter->setFixedHeight(16);
     trafficFooter->setToolTip(uiText("Трафик HTTP и WebSocket этого плагина с запуска OBS; без видео и сетевых заголовков",
         "This plugin's HTTP and WebSocket data since OBS started; excludes video and network headers"));
-    trafficFooter_=trafficFooter;footer->addWidget(trafficFooter);root_->addLayout(footer);
+    trafficFooter_=trafficFooter;footer->addWidget(trafficFooter);root_->addWidget(footerWidget);
     trafficFooter->setText(uiText("Трафик за сеанс · ","Session traffic · ")+QString::fromUtf8("↑ ")+sn::volume(double(usage_.txTotal),isRu())+
         QString::fromUtf8("  |  ↓ ")+sn::volume(double(usage_.rxTotal),isRu()));
     if(!pendingFocus_.isEmpty()) {
@@ -933,6 +957,24 @@ QWidget* StreamDock::buildConnections()
     tw->setPlaceholderText("https://www.twitch.tv/channel");
     connect(tw, &QLineEdit::textChanged, this, [this](const QString& s) {store_.current.twitchUrl=s;changeSettings();});
     v->addWidget(tw);
+    section(v,uiText("Подтверждение активности","Live verification"));
+    v->addWidget(label(uiText("Можно войти здесь или использовать аккаунты Stream Chat. Защищённые токены Stream Chat читаются только для проверки эфира.",
+                              "Sign in here or use Stream Chat accounts. Protected Stream Chat tokens are read only to verify live status."),"Hint"));
+    v->addWidget(label(platforms_.youtubeAccount(),"Hint"));
+    if(!platforms_.youtube().error.isEmpty())v->addWidget(label(platforms_.youtube().error,"Hint"));
+    auto* ytLogin=btn(uiText("Войти в YouTube","Sign in to YouTube"));
+    connect(ytLogin,&QPushButton::clicked,this,[this]{platforms_.beginYouTubeLogin();});v->addWidget(ytLogin);
+    auto* ytLogout=btn(uiText("Удалить вход Notify в YouTube","Remove Notify YouTube login"));
+    connect(ytLogout,&QPushButton::clicked,this,[this]{platforms_.signOutYouTube();rebuild();});v->addWidget(ytLogout);
+    v->addWidget(label(platforms_.twitchAccount(),"Hint"));
+    if(!platforms_.twitch().error.isEmpty())v->addWidget(label(platforms_.twitch().error,"Hint"));
+    auto* twLogin=btn(uiText("Войти в Twitch","Sign in to Twitch"));
+    connect(twLogin,&QPushButton::clicked,this,[this]{platforms_.beginTwitchLogin();});v->addWidget(twLogin);
+    auto* twLogout=btn(uiText("Удалить вход Notify в Twitch","Remove Notify Twitch login"));
+    connect(twLogout,&QPushButton::clicked,this,[this]{platforms_.signOutTwitch();rebuild();});v->addWidget(twLogout);
+    if(!platforms_.twitchDeviceCode().isEmpty())v->addWidget(label(uiText("Код Twitch: ","Twitch code: ")+platforms_.twitchDeviceCode(),"Good"));
+    v->addWidget(label(uiText("Ручная ссылка используется при ошибке API только для активного отдельного выхода OBS этой платформы.",
+                              "A manual link is used on API error only when a separate OBS output for that platform is active."),"Hint"));
     outer->addWidget(urls);
     outer->addStretch();
     return body;
@@ -948,7 +990,7 @@ QWidget* StreamDock::buildMessage()
     templ->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
     v->setAlignment(Qt::AlignTop);
     section(v, uiText("Шаблон уведомления", "Notification template"));
-    v->addWidget(label(uiText("Поддерживаются {youtube} и {twitch}", "Supports {youtube} and {twitch}"), "Hint"));
+    v->addWidget(label(uiText("{youtube}, {twitch}, {youtube_url}, {twitch_url}, {stream_url}", "{youtube}, {twitch}, {youtube_url}, {twitch_url}, {stream_url}"), "Hint"));
     auto* edit = new QTextEdit;
     edit->setFixedHeight(store_.current.compact?92:120);
     edit->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
@@ -964,13 +1006,26 @@ QWidget* StreamDock::buildMessage()
     v->addLayout(tokens);
     outer->addWidget(templ);
 
+    auto* second=card(&v);
+    section(v,uiText("Анонс второй платформы","Second platform announcement"));
+    auto* secondEnabled=new StreamSwitch(uiText("Отправлять, когда подключится вторая платформа","Send when the second platform goes live"));
+    secondEnabled->setChecked(store_.current.secondAnnouncementEnabled);
+    connect(secondEnabled,&QCheckBox::toggled,this,[this](bool enabled){store_.current.secondAnnouncementEnabled=enabled;changeSettings();});
+    v->addWidget(secondEnabled);
+    v->addWidget(label(uiText("Переменные: {platform}, {stream_url}, {youtube_url}, {twitch_url}",
+                             "Variables: {platform}, {stream_url}, {youtube_url}, {twitch_url}"),"Hint"));
+    auto* secondEdit=new QTextEdit;secondEdit->setFixedHeight(store_.current.compact?90:112);
+    secondEdit->setPlainText(store_.current.secondMessage);
+    connect(secondEdit,&QTextEdit::textChanged,this,[this,secondEdit]{store_.current.secondMessage=secondEdit->toPlainText();changeSettings();});
+    v->addWidget(secondEdit);outer->addWidget(second);
+
     auto* delay = card(&v);
     delay->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
     v->setAlignment(Qt::AlignTop);
     section(v,uiText("Задержка отправки", "Notification delay"));
     v->addWidget(label(uiText("После начала эфира, включая Aitum", "After going live, including Aitum"), "Hint"));
     auto* delayRow=new QHBoxLayout;delayRow->setSpacing(4);
-    for(int seconds:{60,90,120}) {
+    for(int seconds:{60,90,120,360}) {
         auto* choice=btn(QString::number(seconds)+uiText(" сек"," sec"));
         choice->setCheckable(true);choice->setChecked(store_.current.sendDelay==seconds);
         if(choice->isChecked())choice->setObjectName("ActiveNav");
@@ -1525,6 +1580,7 @@ void StreamDock::streamStarted()
     if(alreadyHandled_) {rebuild();return;}
     alreadyHandled_ = true;
     announcementAttempted_=false;telegram_={};discord_={};
+    mainDelivered_=false;mainIds_.clear();secondPending_.clear();mainTemplate_=store_.current.message;
     resultTimer_.stop();
     ++generation_;
     if(!store_.current.enabled) {statusText_=uiText("Автоуведомления выключены", "Automatic notifications disabled");rebuild();return;}
@@ -1538,12 +1594,12 @@ void StreamDock::streamStarted()
     const bool configured = (session_.telegram && validTelegram(session_.token,session_.chat)) ||
                             (session_.discord && validDiscord(session_.webhook));
     if(!configured) {statusText_=uiText("Сначала настройте Telegram или Discord", "Configure Telegram or Discord first");rebuild();return;}
-    if (!error.isEmpty()) {
-        statusText_=uiText("Ошибка шаблона: ", "Invalid template: ") + error;
-        rebuild();return;
-    }
+    // URLs are resolved after the platform APIs respond; validate the template at dispatch.
     elapsed_.start();
     countdown_.start();
+    verificationTimer_.setInterval(20000);
+    verificationTimer_.start();
+    QTimer::singleShot(2500,this,[this]{if(broadcasting_&&!shuttingDown_)probePlatforms();});
     store_.addEvent("STREAM_STARTED");
     showPhase(Phase::Counting);
 }
@@ -1566,6 +1622,7 @@ void StreamDock::streamStopped()
     sn::CpuScope snCpuScope;
     if (shuttingDown_) return;
     broadcasting_ = false;
+    verificationTimer_.stop();
     donation_.setLive(false);
     alreadyHandled_ = false;
     if (phase_ == Phase::Counting) {cancelCurrent("Stream stopped"); return;}
@@ -1578,32 +1635,140 @@ void StreamDock::streamStopped()
     rebuild();
 }
 
+void StreamDock::probePlatforms()
+{
+    if(shuttingDown_||!broadcasting_)return;
+    const auto outputs=monitor_.sample(telemetryClock_.elapsed());
+    bool youtubeOutput=false,twitchOutput=false;
+    for(const auto& output:outputs){
+        if(!output.stats.active)continue;
+        if(output.platform=="YouTube")youtubeOutput=true;
+        if(output.platform=="Twitch")twitchOutput=true;
+    }
+    platforms_.check(youtubeOutput,twitchOutput,store_.current.youtubeUrl,store_.current.twitchUrl);
+}
+
+void StreamDock::onPlatformsChanged()
+{
+    if(shuttingDown_)return;
+    if(page_==Page::Connections)rebuild();
+    if(!broadcasting_)return;
+    for(const QString platform:{QString("YouTube"),QString("Twitch")}){
+        const auto live=platform=="YouTube"?platforms_.youtube():platforms_.twitch();
+        const QString oldId=mainIds_.value(platform);
+        if(!oldId.startsWith("manual:")||!live.confirmed||live.phase!=sn::LivePhase::Live||live.id.isEmpty())continue;
+        for(const auto channel:{Channel::Telegram,Channel::Discord}){
+            const QString oldKey=announcementKey("main",platform,oldId,channel);
+            const QString newKey=announcementKey("main",platform,live.id,channel);
+            if(store_.current.deliveryJournal.contains(oldKey)&&!store_.current.deliveryJournal.contains(newKey))
+                store_.current.deliveryJournal[newKey]=store_.current.deliveryJournal.value(oldKey);
+        }
+        mainIds_[platform]=live.id;store_.save();
+    }
+    if(!mainDelivered_||!store_.current.secondAnnouncementEnabled)return;
+    if(mainIds_.size()!=1)return;
+    const QString other=mainIds_.contains("YouTube")?"Twitch":"YouTube";
+    const auto live=other=="YouTube"?platforms_.youtube():platforms_.twitch();
+    if(live.phase!=sn::LivePhase::Live||!live.confirmed||live.id.isEmpty()||mainIds_.contains(other))return;
+    sendSecondPlatform(other,live);
+}
+
+void StreamDock::sendSecondPlatform(const QString& platform,const sn::LivePlatform& live)
+{
+    const QString pending=platform+"|"+live.id;
+    if(secondPending_.contains(pending))return;
+    secondPending_.insert(pending);
+    const QString youtube=platform=="YouTube"?live.url:QString();
+    const QString twitch=platform=="Twitch"?live.url:QString();
+    QString error;
+    const QString message=renderAnnouncement(store_.current.secondMessage,youtube,twitch,platform,&error);
+    if(!error.isEmpty()){
+        store_.addEvent("SECOND_TEMPLATE_ERROR "+error);secondPending_.remove(pending);return;
+    }
+    const Snapshot snapshot=makeSnapshot(store_.current);
+    auto send=[this,platform,live,pending,message,snapshot](Channel channel){
+        if(shuttingDown_||!broadcasting_){secondPending_.remove(pending);return;}
+        if(channel==Channel::Telegram&&!snapshot.telegram)return;
+        if(channel==Channel::Discord&&!snapshot.discord)return;
+        const QString journalKey=announcementKey("second",platform,live.id,channel);
+        if(store_.current.deliveryJournal.contains(journalKey))return;
+        if(channel==Channel::Telegram&&!validTelegram(snapshot.token,snapshot.chat))return;
+        if(channel==Channel::Discord&&!validDiscord(snapshot.webhook))return;
+        store_.current.deliveryJournal[journalKey]="reserved";
+        if(!store_.save()){store_.current.deliveryJournal.remove(journalKey);return;}
+        secondSender_.send(channel,snapshot,message,[this,journalKey,channel,platform](Delivery result){
+            if(shuttingDown_)return;
+            store_.current.deliveryJournal[journalKey]=result.status==Outcome::Sent?"sent":
+                result.status==Outcome::Unknown?"unknown":"failed";
+            store_.save();
+            store_.addEvent(QString("SECOND_%1_%2 ").arg(platform,channel==Channel::Telegram?"TELEGRAM":"DISCORD")+
+                (result.status==Outcome::Sent?"SENT":result.status==Outcome::Unknown?"UNKNOWN":"FAILED"));
+        });
+    };
+    send(Channel::Telegram);
+    QTimer::singleShot(1100,this,[this,send,pending]{send(Channel::Discord);secondPending_.remove(pending);});
+    mainIds_[platform]=live.id;
+}
+
 void StreamDock::dispatch()
 {
     sn::CpuScope snCpuScope;
     if (phase_ != Phase::Counting) return;
     if (!anyStreamingOutputActive() || !broadcasting_) {cancelCurrent("Stream inactive");return;}
-    if (telegram_.status == Outcome::Waiting && !validTelegram(session_.token,session_.chat))
-        telegram_ = {Outcome::NotConfigured,"Check BotFather token and Chat ID",0};
-    if (discord_.status == Outcome::Waiting && !validDiscord(session_.webhook))
-        discord_ = {Outcome::NotConfigured,"Check Discord webhook URL",0};
+    const auto youtube=platforms_.youtube(),twitch=platforms_.twitch();
+    const bool ytLive=youtube.phase==sn::LivePhase::Live&&!youtube.id.isEmpty()&&validStreamUrl(youtube.url);
+    const bool twLive=twitch.phase==sn::LivePhase::Live&&!twitch.id.isEmpty()&&validStreamUrl(twitch.url);
+    if(!ytLive&&!twLive){
+        cancelCurrent("No active platform");
+        statusText_=uiText("Активные трансляции не подтверждены: анонс не отправлен",
+                           "No active platform verified: announcement not sent");
+        rebuild();return;
+    }
+    if(ytLive)mainIds_["YouTube"]=youtube.id;
+    if(twLive)mainIds_["Twitch"]=twitch.id;
     announcementAttempted_=true;
     activePending_ = 0;
-    if (telegram_.status == Outcome::Waiting) {telegram_.status = Outcome::Sending; ++activePending_;}
-    if (discord_.status == Outcome::Waiting) {discord_.status = Outcome::Sending; ++activePending_;}
-    showPhase(Phase::Sending);
+    telegramMainKeys_.clear();discordMainKeys_.clear();
     const quint64 key = generation_;
-    auto submit = [this,key](Channel c) {
-        sender_.send(c,session_,session_.message,[this,key,c](Delivery d) {
-            if(shuttingDown_ || key != generation_ || phase_ != Phase::Sending) return;
-            recordOutcome(c,d);
-            --activePending_;
-            if(activePending_ <= 0) complete();
-            else rebuild();
+    auto prepare = [this,ytLive,twLive,&youtube,&twitch](Channel channel,Delivery& outcome,QStringList& keys)->QString {
+        if(outcome.status!=Outcome::Waiting)return {};
+        if(channel==Channel::Telegram&&!validTelegram(session_.token,session_.chat)){
+            outcome={Outcome::NotConfigured,"Check BotFather token and Chat ID",0};return {};
+        }
+        if(channel==Channel::Discord&&!validDiscord(session_.webhook)){
+            outcome={Outcome::NotConfigured,"Check Discord webhook URL",0};return {};
+        }
+        QString ytUrl,twUrl;
+        if(ytLive){const QString k=announcementKey("main","YouTube",youtube.id,channel);
+            if(!store_.current.deliveryJournal.contains(k)){ytUrl=youtube.url;keys<<k;}
+            else if(store_.current.deliveryJournal.value(k)=="sent")mainDelivered_=true;}
+        if(twLive){const QString k=announcementKey("main","Twitch",twitch.id,channel);
+            if(!store_.current.deliveryJournal.contains(k)){twUrl=twitch.url;keys<<k;}
+            else if(store_.current.deliveryJournal.value(k)=="sent")mainDelivered_=true;}
+        if(keys.isEmpty()){outcome={Outcome::Disabled,"Already announced",0};return {};}
+        QString error;const QString message=renderAnnouncement(mainTemplate_,ytUrl,twUrl,{},&error);
+        if(!error.isEmpty()){outcome={Outcome::Failed,error,0};keys.clear();return {};}
+        for(const auto& k:keys)store_.current.deliveryJournal[k]="reserved";
+        if(!store_.save()){
+            for(const auto& k:keys)store_.current.deliveryJournal.remove(k);
+            outcome={Outcome::Failed,"Cannot reserve delivery journal",0};keys.clear();return {};
+        }
+        outcome.status=Outcome::Sending;++activePending_;return message;
+    };
+    const QString telegramMessage=prepare(Channel::Telegram,telegram_,telegramMainKeys_);
+    const QString discordMessage=prepare(Channel::Discord,discord_,discordMainKeys_);
+    showPhase(Phase::Sending);
+    auto submit=[this,key](Channel channel,const QString& message){
+        sender_.send(channel,session_,message,[this,key,channel](Delivery delivery){
+            if(shuttingDown_||key!=generation_||phase_!=Phase::Sending)return;
+            recordOutcome(channel,delivery);--activePending_;
+            if(activePending_<=0)complete();else rebuild();
         });
     };
-    if (telegram_.status == Outcome::Sending) submit(Channel::Telegram);
-    if (discord_.status == Outcome::Sending) submit(Channel::Discord);
+    if(telegram_.status==Outcome::Sending)submit(Channel::Telegram,telegramMessage);
+    if(discord_.status==Outcome::Sending)QTimer::singleShot(1100,this,[this,key,submit,discordMessage]{
+        if(!shuttingDown_&&key==generation_)submit(Channel::Discord,discordMessage);
+    });
     if(activePending_ == 0) complete();
 }
 
@@ -1612,7 +1777,12 @@ void StreamDock::recordOutcome(Channel channel, const Delivery& delivery)
     sn::CpuScope snCpuScope;
     if (channel == Channel::Telegram) telegram_ = delivery;
     else discord_ = delivery;
-    const QString name = channel == Channel::Telegram ? "TELEGRAM" : "DISCORD";
+    const auto& keys=channel==Channel::Telegram?telegramMainKeys_:discordMainKeys_;
+    const QString journalStatus=delivery.status==Outcome::Sent?"sent":delivery.status==Outcome::Unknown?"unknown":"failed";
+    for(const auto& key:keys)store_.current.deliveryJournal[key]=journalStatus;
+    store_.save();
+    if(delivery.status==Outcome::Sent)mainDelivered_=true;
+    const QString name = channel == Channel::Telegram ? "MAIN_TELEGRAM" : "MAIN_DISCORD";
     store_.addEvent(name + ": " + (delivery.status == Outcome::Sent ? "SENT" :
                               delivery.status == Outcome::Unknown ? "UNKNOWN" : "FAILED"));
 }
@@ -1626,6 +1796,7 @@ void StreamDock::complete()
         (discord_.detail.isEmpty()?QString():" — "+discord_.detail);
     store_.current.lastTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     store_.addEvent("SESSION_FINISHED");
+    verificationTimer_.setInterval(60000);
     statusText_=uiText("Последняя рассылка завершена", "Last delivery completed");
     showPhase(Phase::Result);
     resultTimer_.start(session_.resultSeconds*1000);
@@ -1666,6 +1837,7 @@ void StreamDock::shutdown()
     streamStateTimer_.stop();
     telemetryTimer_.stop();monitor_.clear();
     resultTimer_.stop();
+    verificationTimer_.stop();platforms_.stop();secondSender_.abortAll();
     ++generation_;
     sender_.abortAll();
     testSender_.abortAll();

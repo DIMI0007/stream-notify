@@ -67,7 +67,7 @@ bool unprotect(const QByteArray& encoded, QString& value)
 #endif
 }
 
-bool acceptedDelay(int seconds) { return seconds == 60 || seconds == 90 || seconds == 120; }
+bool acceptedDelay(int seconds) { return seconds == 60 || seconds == 90 || seconds == 120 || seconds == 360; }
 bool acceptedResult(int seconds) { return seconds == 30 || seconds == 45 || seconds == 60; }
 }
 
@@ -100,8 +100,13 @@ bool SettingsStore::load()
     current.youtubeUrl = str("youtube_url", {});
     current.twitchUrl = str("twitch_url", {});
     current.message = str("message", current.message);
-    current.sendDelay = j.value("send_delay").toInt(60);
-    if (!acceptedDelay(current.sendDelay)) current.sendDelay = 60;
+    current.secondAnnouncementEnabled=flag("second_announcement_enabled",true);
+    current.secondMessage=str("second_message",current.secondMessage);
+    const QJsonObject journal=j.value("delivery_journal").toObject();
+    for(auto it=journal.begin();it!=journal.end();++it)
+        if(it.value().isString()&&it.key().size()<400)current.deliveryJournal.insert(it.key(),it.value().toString());
+    current.sendDelay = j.value("send_delay").toInt(120);
+    if (!acceptedDelay(current.sendDelay)) current.sendDelay = 120;
     current.resultSeconds = j.value("result_seconds").toInt(45);
     if (!acceptedResult(current.resultSeconds)) current.resultSeconds = 45;
     current.locale = str("locale", "auto");
@@ -198,6 +203,11 @@ bool SettingsStore::save()
     j["youtube_url"] = current.youtubeUrl;
     j["twitch_url"] = current.twitchUrl;
     j["message"] = current.message;
+    j["second_announcement_enabled"]=current.secondAnnouncementEnabled;
+    j["second_message"]=current.secondMessage;
+    QJsonObject journal;
+    for(auto it=current.deliveryJournal.cbegin();it!=current.deliveryJournal.cend();++it)journal[it.key()]=it.value();
+    j["delivery_journal"]=journal;
     j["send_delay"] = current.sendDelay;
     j["result_seconds"] = current.resultSeconds;
     j["locale"] = current.locale;
@@ -252,24 +262,32 @@ bool validStreamUrl(const QString& raw)
 }
 QString prepareMessage(const Settings& s, QString* error)
 {
-    if (error) error->clear();
-    if (!validStreamUrl(s.youtubeUrl) || !validStreamUrl(s.twitchUrl)) {
+    return renderAnnouncement(s.message,s.youtubeUrl,s.twitchUrl,{},error);
+}
+QString renderAnnouncement(const QString& message,const QString& youtubeUrl,const QString& twitchUrl,
+                           const QString& platform,QString* error)
+{
+    if(error)error->clear();
+    if (!validStreamUrl(youtubeUrl) || !validStreamUrl(twitchUrl)) {
         if (error) *error = "Invalid YouTube or Twitch URL";
         return {};
     }
-    QString body = s.message;
-    if (s.youtubeUrl.trimmed().isEmpty()) {
+    QString body=message;
+    if (youtubeUrl.trimmed().isEmpty()) {
         QStringList lines;
-        for (const QString& line : body.split('\n')) if (!line.contains("{youtube}")) lines << line;
+        for (const QString& line : body.split('\n')) if (!line.contains("{youtube}")&&!line.contains("{youtube_url}")) lines << line;
         body = lines.join('\n');
-    } else body.replace("{youtube}", s.youtubeUrl.trimmed());
-    if (s.twitchUrl.trimmed().isEmpty()) {
+    } else body.replace("{youtube}",youtubeUrl.trimmed()).replace("{youtube_url}",youtubeUrl.trimmed());
+    if (twitchUrl.trimmed().isEmpty()) {
         QStringList lines;
-        for (const QString& line : body.split('\n')) if (!line.contains("{twitch}")) lines << line;
+        for (const QString& line : body.split('\n')) if (!line.contains("{twitch}")&&!line.contains("{twitch_url}")) lines << line;
         body = lines.join('\n');
-    } else body.replace("{twitch}", s.twitchUrl.trimmed());
+    } else body.replace("{twitch}",twitchUrl.trimmed()).replace("{twitch_url}",twitchUrl.trimmed());
+    QStringList urls;if(!youtubeUrl.trimmed().isEmpty())urls<<youtubeUrl.trimmed();if(!twitchUrl.trimmed().isEmpty())urls<<twitchUrl.trimmed();
+    body.replace("{stream_url}",urls.join("\n")).replace("{platform}",platform);
     static const QRegularExpression unknown("\\{[A-Za-z_][A-Za-z0-9_]*\\}");
     if (unknown.match(body).hasMatch()) { if (error) *error = "Unsupported template variable"; return {}; }
+    body.replace(QRegularExpression("\\n{3,}"),"\n\n");
     body = body.trimmed();
     if (body.isEmpty()) { if (error) *error = "Message is empty"; return {}; }
     if (body.size() > 2000) { if (error) *error = "Message exceeds Discord 2000 character limit"; return {}; }

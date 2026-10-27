@@ -3,6 +3,7 @@
 #include "net.hpp"
 #include "donations.hpp"
 #include "stream_monitor.hpp"
+#include "platform_probe.hpp"
 namespace sn {class OutputPanel;class ResourcePanel;}
 #include <QWidget>
 #include <QTimer>
@@ -11,6 +12,7 @@ namespace sn {class OutputPanel;class ResourcePanel;}
 #include <QLabel>
 #include <QStackedWidget>
 #include <QVBoxLayout>
+#include <QSet>
 
 class CountdownRing;
 class QPushButton;
@@ -37,6 +39,8 @@ private:
     Sender sender_;
     Sender testSender_;
     Sender manualSender_;
+    Sender secondSender_;
+    sn::PlatformProbe platforms_;
     DonationEngine donation_;
     QTimer donationConfigure_;
     Phase phase_ = Phase::Idle;
@@ -50,10 +54,16 @@ private:
     QTimer countdown_;
     QTimer streamStateTimer_;
     QTimer resultTimer_;
+    QTimer verificationTimer_;
     Snapshot session_;
+    QString mainTemplate_;
     Delivery telegram_;
     Delivery discord_;
     int activePending_ = 0;
+    bool mainDelivered_=false;
+    QMap<QString,QString> mainIds_;
+    QSet<QString> secondPending_;
+    QStringList telegramMainKeys_,discordMainKeys_;
     QString statusText_;
     QString pendingFocus_;
     QString transientTelegram_;
@@ -119,6 +129,9 @@ private:
     void refreshTelemetry();
     void cancelCurrent(const QString& reason);
     void dispatch();
+    void probePlatforms();
+    void onPlatformsChanged();
+    void sendSecondPlatform(const QString& platform,const sn::LivePlatform& live);
     void complete();
     void testChannel(Channel channel);
     void recordOutcome(Channel channel, const Delivery& outcome);

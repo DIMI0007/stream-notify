@@ -15,6 +15,11 @@
 #include <QLineEdit>
 #include <iostream>
 struct DockPreview {
+    static bool singleFooter(StreamDock& panel){
+        return panel.findChildren<QLabel*>("SessionTrafficFooter").size()==1&&
+               panel.findChildren<QLabel*>("Credit").size()==1;
+    }
+    static void rebuild(StreamDock& panel){panel.rebuild();}
     struct ServiceScene {Settings settings;QString da,dp;};
     static ServiceScene connectedServices(StreamDock& panel){
         ServiceScene previous{panel.store_.current,panel.donation_.daStatus_,panel.donation_.dpStatus_};
@@ -174,6 +179,13 @@ int main(int argc,char** argv) {
     const int width=argc>2?QString::fromLocal8Bit(argv[2]).toInt():290;
     const int height=argc>3?QString::fromLocal8Bit(argv[3]).toInt():900;
     StreamDock panel;panel.resize(width,height);panel.show();pump();
+    auto* headerBrand=panel.findChild<QWidget*>("HeaderBrand");
+    auto* headerManual=panel.findChild<QPushButton*>("ManualMessageShortcut");
+    auto* headerSettings=panel.findChild<QPushButton*>("SettingsShortcut");
+    if(!headerBrand||!headerManual||!headerSettings||panel.layout()->spacing()!=5||
+       headerBrand->size()!=QSize(28,28)||headerManual->size()!=QSize(30,28)||
+       headerSettings->size()!=QSize(30,28)||headerSettings->iconSize()!=QSize(19,19)||
+       qAbs(headerBrand->y()-headerSettings->y())>3)return 58;
     if(!DockPreview::ignoresSavedAnnouncementAtStartup(panel))return 43;
     auto click=[&](const QString& text) {
         for(auto* button:panel.findChildren<QPushButton*>())
@@ -365,6 +377,11 @@ int main(int argc,char** argv) {
     if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+2)return 7;
     streamPreviewOutputs.clear();panel.refreshStreamingState();pump();
     std::cout<<"Multistream aggregate start, deduplication, last-stop and restart tests passed\\n";
+    for(int i=0;i<12;++i){
+        DockPreview::rebuild(panel);pump();
+        if(!DockPreview::singleFooter(panel))return 44;
+    }
+    std::cout<<"Footer survives repeated dock rebuilds without duplicate labels\n";
     panel.shutdown();
     std::cout<<"Dock navigation, language and compact-mode smoke tests passed\n";
 }
