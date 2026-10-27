@@ -3,7 +3,9 @@
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <QAction>
+#include <QDir>
 #include <QDockWidget>
+#include <QFileInfo>
 #include <QMainWindow>
 #include <QPointer>
 #include <QSettings>
@@ -20,7 +22,9 @@ bool registered=false,exiting=false;
 QString statePath(){
     char* raw=obs_module_config_path("dock-visibility.ini");
     if(!raw)return {};
-    const QString path=QString::fromUtf8(raw);bfree(raw);return path;
+    const QString path=QString::fromUtf8(raw);bfree(raw);
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    return path;
 }
 
 void saveVisibility(){

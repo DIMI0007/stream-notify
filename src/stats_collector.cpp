@@ -44,6 +44,7 @@ void Collector::gpuLoop() {}
 #include <windows.h>
 #include <psapi.h>
 #include <pdh.h>
+#include <pdhmsg.h>
 
 namespace stats {
 namespace {

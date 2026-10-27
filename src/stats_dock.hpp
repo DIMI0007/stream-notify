@@ -50,7 +50,7 @@ private:
     QString language_="auto";
     int rangeMinutes_=1;
     bool horizontal_=false;
-    bool arranged_=false;
+    int layoutMode_=-1;
     bool closing_=false;
 };
 } // namespace stats
