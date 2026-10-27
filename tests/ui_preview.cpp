@@ -179,6 +179,7 @@ int main(int argc,char** argv) {
     const int width=argc>2?QString::fromLocal8Bit(argv[2]).toInt():290;
     const int height=argc>3?QString::fromLocal8Bit(argv[3]).toInt():900;
     StreamDock panel;panel.resize(width,height);panel.show();pump();
+    if(panel.width()!=width){std::cerr<<"Unexpected dock width: "<<panel.width()<<" instead of "<<width<<"\n";return 62;}
     auto* headerBrand=panel.findChild<QWidget*>("HeaderBrand");
     auto* headerManual=panel.findChild<QPushButton*>("ManualMessageShortcut");
     auto* headerSettings=panel.findChild<QPushButton*>("SettingsShortcut");
