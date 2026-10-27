@@ -306,7 +306,7 @@ void StatsDock::arrangeCards(){
     }else{
         cards_->addWidget(systemCard_,0,0);cards_->addWidget(streamCard_,1,0);cards_->addWidget(recordCard_,2,0);
         cards_->setColumnStretch(0,1);cards_->setColumnStretch(1,0);cards_->setColumnStretch(2,0);
-        fpsChart_->show();
+        fpsChart_->hide();
     }
     const int chartHeight=roomy?155:wide?31:74;
     for(auto* chart:{systemChart_,fpsChart_,streamChart_,recordChart_})chart->setDisplayHeight(chartHeight);
@@ -323,7 +323,10 @@ void StatsDock::arrangeCards(){
     if(auto* title=home_->findChild<QLabel*>("DockTitle"))
         title->setStyleSheet(QString("font-size:%1px;font-weight:700;color:#e8f5ff;").arg(roomy?30:17));
     if(auto* mark=home_->findChild<QWidget*>("StatsMark"))mark->setFixedSize(roomy?45:28,roomy?45:28);
-    if(auto* gear=home_->findChild<QPushButton*>("SettingsButton"))gear->setFixedSize(roomy?42:28,roomy?40:27);
+    if(auto* gear=home_->findChild<QPushButton*>("SettingsButton")){
+        gear->setFixedSize(roomy?42:28,roomy?40:27);
+        gear->setStyleSheet(QString("font-size:%1px;padding:0;").arg(roomy?25:18));
+    }
     if(footer_)footer_->setStyleSheet(QString("font-size:%1px;color:#9ab2cc;").arg(roomy?14:10));
     if(footer_)footer_->setFixedHeight(roomy?25:15);
     for(auto* button:rangeButtons_)button->setFixedSize(roomy?48:34,roomy?32:23);
