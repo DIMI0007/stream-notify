@@ -8,7 +8,9 @@
 #include <cstdio>
 
 int main(int argc,char** argv) {
+    std::fprintf(stderr,"Preview process started\n");std::fflush(stderr);
     QApplication app(argc,argv);
+    std::fprintf(stderr,"Qt application initialized\n");std::fflush(stderr);
     const QString output=argc>1?QString::fromLocal8Bit(argv[1]):"ui-previews";
     QDir().mkpath(output);
     stats::StatsDock dock;
