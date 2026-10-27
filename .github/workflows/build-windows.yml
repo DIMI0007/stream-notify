@@ -21,6 +21,7 @@ jobs:
       - name: Test stream aggregation and history
         run: ctest --test-dir build_x64 -C RelWithDebInfo --output-on-failure
       - name: Render responsive panels
+        timeout-minutes: 3
         shell: pwsh
         run: |
           $qtRoot = Join-Path $PWD ".deps/obs-deps-qt6-2026-10-23-x64"

@@ -108,7 +108,8 @@ protected:
             const auto& points=values[s];if(points.size()<2)continue;
             QPainterPath line;
             for(int i=0;i<points.size();++i){
-                const qreal x=plot.left()+2+qreal(i)*qreal(plot.width()-4)/qreal(points.size()-1);
+                const qreal age=qreal(points.size()-1-i);
+                const qreal x=plot.right()-2-age*qreal(plot.width()-4)/qreal(std::max(1,seconds_-1));
                 const qreal y=plot.bottom()-2-qreal(points[i]/maximum)*qreal(plot.height()-5);
                 if(i==0)line.moveTo(x,y);else line.lineTo(x,y);
             }
