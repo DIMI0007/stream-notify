@@ -29,6 +29,9 @@ jobs:
           $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config/normal"
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config/narrow"
+          & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/narrow 275 900
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:STREAM_NOTIFY_PREVIEW_DIR = "$PWD/build_x64/ui-preview-config/wide"
           & ./build_x64/RelWithDebInfo/stream-notify-ui-preview.exe ui-previews/wide 420 1050
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

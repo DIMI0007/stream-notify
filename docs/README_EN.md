@@ -6,7 +6,7 @@
 | --- | --- |
 | ![Stream Notify home dock](screenshots/home.png) | ![Outputs, bitrate, and graphs](screenshots/monitoring.png) |
 
-*Version 1.0.9 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
+*Version 1.0.10 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
 
 ## Features
 
@@ -21,7 +21,7 @@
 - An automatic announcement during a real stream reached both Telegram and Discord.
 - DonationAlerts browser sign-in and delivery of a replayed earlier donation to both destinations were confirmed. A new payment after connection still needs testing.
 - DonatePay accepted the account API key and connected. Delivery from a new real donation is not yet confirmed; this integration is experimental.
-- Version 1.0.9 is built and UI-tested in CI. Automatic links and deduplication still need validation during a real multistream.
+- Version 1.0.10 is built and UI-tested in CI. Automatic links and deduplication still need validation during a real multistream.
 
 ## Install
 

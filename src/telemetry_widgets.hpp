@@ -80,7 +80,9 @@ public:
                 box->setStyleSheet("QFrame#OutputTile{background:#0b1520;border:1px solid #2d4056;border-radius:7px;}QFrame#OutputTile:hover{background:#0e1a28;border-color:#38516d;}");
                 auto* grid=new QGridLayout(box);grid->setContentsMargins(6,5,6,5);grid->setHorizontalSpacing(5);grid->setVerticalSpacing(2);
                 grid->addWidget(new ServiceBadge(v.platform=="RTMP"?"Stream Notify":v.platform),0,0,2,1);
-                Row row;row.title=text(v.platform,"Section");row.title->setWordWrap(false);row.state=text("","Hint");row.state->setWordWrap(false);
+                Row row;row.title=text(v.platform,"Section");row.state=text("","Hint");
+                row.title->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);
+                row.state->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);
                 row.state->setAlignment(Qt::AlignRight|Qt::AlignVCenter);
                 grid->addWidget(row.title,0,1);grid->addWidget(row.state,0,2,2,1,Qt::AlignVCenter);
                 row.rate=text("—");row.rate->setWordWrap(false);row.bytes=text("—");row.bytes->setWordWrap(false);row.bytes->setAlignment(Qt::AlignLeft);

@@ -115,7 +115,7 @@ inline QIcon streamEyeIcon() {
 }
 inline void serviceSection(QVBoxLayout* layout,const QString& name) {
     auto* row=new QHBoxLayout;row->setSpacing(7);row->addWidget(new ServiceBadge(name));
-    auto* title=new QLabel(name);title->setObjectName("Section");row->addWidget(title,1);layout->addLayout(row);
+    auto* title=new QLabel(name);title->setObjectName("Section");title->setWordWrap(true);row->addWidget(title,1);layout->addLayout(row);
 }
 
 inline QIcon streamNavIcon(const QString& kind,bool active=false) {
