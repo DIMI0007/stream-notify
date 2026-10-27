@@ -13,7 +13,9 @@ int main(int argc,char** argv) {
     std::fprintf(stderr,"Qt application initialized\n");std::fflush(stderr);
     const QString output=argc>1?QString::fromLocal8Bit(argv[1]):"ui-previews";
     QDir().mkpath(output);
-    stats::StatsDock dock;
+    QWidget host;
+    host.resize(1,1);host.show();
+    stats::StatsDock dock(&host);
     std::fprintf(stderr,"Preview panel constructed\n");std::fflush(stderr);
     dock.previewSamples(75);
     std::fprintf(stderr,"Preview samples prepared\n");std::fflush(stderr);
@@ -21,6 +23,9 @@ int main(int argc,char** argv) {
         std::fprintf(stderr,"Capture %s begin\n",file);std::fflush(stderr);
         dock.resize(width,height);dock.show();app.processEvents(QEventLoop::AllEvents,200);
         std::fprintf(stderr,"Capture %s laid out\n",file);std::fflush(stderr);
+        if(dock.width()!=width||dock.height()!=height){
+            std::fprintf(stderr,"Unexpected rendered size: %dx%d\n",dock.width(),dock.height());return false;
+        }
         auto* scroll=dock.findChild<QScrollArea*>();
         if(!scroll)return false;
         const bool saved=dock.grab().save(output+"/"+QString::fromLatin1(file));

@@ -91,9 +91,13 @@ bool collectOutput(void* opaque,obs_output_t* output) {
     QString descriptor=QString::fromUtf8(obs_output_get_id(output));
     if(const char* name=obs_output_get_name(output))descriptor += " "+QString::fromUtf8(name);
     descriptor=descriptor.toLower();
-    const bool possible=!stream && (descriptor.contains("stream")||descriptor.contains("rtmp")||
-                                     descriptor.contains("srt")||descriptor.contains("whip")||
-                                     descriptor.contains("rist"));
+    // OBS has no universal flag that distinguishes every third-party network
+    // output from every custom file output. Never silently call an unknown
+    // active output a complete stream total.
+    const bool knownLocal=descriptor.contains("record")||descriptor.contains("replay")||
+        descriptor.contains("virtualcam")||descriptor.contains("virtual_camera")||
+        descriptor.contains("ffmpeg_muxer")||descriptor.contains("file_output");
+    const bool possible=!stream&&!knownLocal;
     OutputReading reading;
     reading.identity=reinterpret_cast<quintptr>(output);
     reading.active=active;reading.reconnecting=reconnecting;

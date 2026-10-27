@@ -356,8 +356,16 @@ void StatsDock::updateSnapshot(const Snapshot& value){
     ramFree_->setText(bytesText(value.system.ramFree,locale));
     fps_->setText(locale.toString(value.system.fps,'f',1));
     render_->setText(locale.toString(value.system.renderMs,'f',1)+" ms");
-    renderDrop_->setText(locale.toString(value.system.renderMissed)+" / "+locale.toString(value.system.renderFrames));
-    encodeDrop_->setText(locale.toString(value.system.encodeSkipped)+" / "+locale.toString(value.system.encodeFrames));
+    const auto frameRatio=[&](quint64 missed,quint64 total){
+        const double percent=total?100.0*double(missed)/double(total):0;
+        const QString count=locale.toString(missed)+" / "+locale.toString(total);
+        return QPair<QString,QString>{count,count+" ("+locale.toString(percent,'f',1)+" %)"};
+    };
+    const auto renderFrames=frameRatio(value.system.renderMissed,value.system.renderFrames);
+    const auto encodeFrames=frameRatio(value.system.encodeSkipped,value.system.encodeFrames);
+    renderDrop_->setText(layoutMode_==2?renderFrames.second:renderFrames.first);
+    encodeDrop_->setText(layoutMode_==2?encodeFrames.second:encodeFrames.first);
+    renderDrop_->setToolTip(renderFrames.second);encodeDrop_->setToolTip(encodeFrames.second);
     streamStatus_->setText(value.stream.reconnecting?phrase("ПЕРЕПОДКЛ.","RECONNECTING"):
         value.stream.active?phrase("● В ЭФИРЕ","● LIVE"):phrase("Неактивна","Offline"));
     streamStatus_->setStyleSheet(QString("color:%1;font-weight:700;").arg(value.stream.reconnecting?"#ffca56":value.stream.active?"#00df8c":"#8fa5c2"));
