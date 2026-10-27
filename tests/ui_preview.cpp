@@ -182,11 +182,20 @@ int main(int argc,char** argv) {
     auto* headerBrand=panel.findChild<QWidget*>("HeaderBrand");
     auto* headerManual=panel.findChild<QPushButton*>("ManualMessageShortcut");
     auto* headerSettings=panel.findChild<QPushButton*>("SettingsShortcut");
+    const auto dimensions=[](QWidget* widget){return widget?QString::number(widget->width())+"x"+QString::number(widget->height()):"missing";};
+    std::cerr<<"Header: brand="<<dimensions(headerBrand).toStdString()
+             <<" y="<<(headerBrand?headerBrand->y():-1)
+             <<" manual="<<dimensions(headerManual).toStdString()
+             <<" y="<<(headerManual?headerManual->y():-1)
+             <<" gear="<<dimensions(headerSettings).toStdString()
+             <<" y="<<(headerSettings?headerSettings->y():-1)
+             <<" icon="<<(headerSettings?headerSettings->iconSize().width():-1)<<"x"<<(headerSettings?headerSettings->iconSize().height():-1)
+             <<" spacing="<<panel.layout()->spacing()<<'\n';
     if(!headerBrand||!headerManual||!headerSettings||panel.layout()->spacing()!=5||
        headerBrand->size()!=QSize(28,28)||headerManual->size()!=QSize(30,28)||
        headerSettings->size()!=QSize(30,28)||headerSettings->iconSize()!=QSize(19,19)||
-       qAbs(headerBrand->y()-headerSettings->y())>3)return 58;
-    if(!DockPreview::ignoresSavedAnnouncementAtStartup(panel))return 43;
+       qAbs(headerBrand->y()-headerSettings->y())>3){std::cerr<<"Header geometry check failed\n";return 58;}
+    if(!DockPreview::ignoresSavedAnnouncementAtStartup(panel)){std::cerr<<"Stale announcement check failed\n";return 43;}
     auto click=[&](const QString& text) {
         for(auto* button:panel.findChildren<QPushButton*>())
             if(button->text().contains(text) && button->isEnabled()){button->click();pump();return true;}
