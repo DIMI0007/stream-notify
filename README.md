@@ -2,6 +2,8 @@
 
 **Анонсы эфира и донатов в Telegram и Discord прямо из OBS.** Плагин работает на вашем компьютере без нашего сервера. [English](docs/README_EN.md).
 
+[Эталон цветов и размеров для Stream Chat, Stream Notify и Stream Stats](docs/VISUAL_STYLE_RU.md).
+
 | Ожидание эфира | Во время трансляции |
 | --- | --- |
 | ![Главная панель Stream Notify](docs/screenshots/home.png) | ![Потоки, битрейт и графики Stream Notify](docs/screenshots/monitoring.png) |
