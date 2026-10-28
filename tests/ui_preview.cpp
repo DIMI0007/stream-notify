@@ -15,6 +15,20 @@
 #include <QLineEdit>
 #include <iostream>
 struct DockPreview {
+    static void journalScene(StreamDock& panel){
+        const auto time=QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")+"  ";
+        panel.store_.current.events.prepend(time+"MAIN_TELEGRAM: SENT | Confirmed");
+        panel.store_.current.events.prepend(time+"MAIN_DISCORD: FAILED | HTTP 403: check credentials and permissions");
+    }
+    static bool confirmedLinks(StreamDock& panel){
+        const auto previous=panel.platforms_.youtube_;const bool broadcasting=panel.broadcasting_;
+        auto& live=panel.platforms_.youtube_;live.phase=sn::LivePhase::Live;live.confirmed=true;live.id="preview-video";live.url="https://www.youtube.com/watch?v=preview-video";live.checkedAt=QDateTime::currentDateTimeUtc();panel.broadcasting_=true;
+        QString error;const auto fresh=panel.confirmedPreview(&error);
+        bool valid=error.isEmpty()&&fresh.contains(live.url)&&!fresh.contains("{youtube");
+        live.checkedAt=live.checkedAt.addSecs(-100);error.clear();valid=valid&&panel.confirmedPreview(&error).isEmpty()&&!error.isEmpty();
+        live.confirmed=false;live.checkedAt=QDateTime::currentDateTimeUtc();error.clear();valid=valid&&panel.confirmedPreview(&error).isEmpty();
+        panel.platforms_.youtube_=previous;panel.broadcasting_=broadcasting;return valid;
+    }
     static bool singleFooter(StreamDock& panel){
         return panel.findChildren<QLabel*>("SessionTrafficFooter").size()==1&&
                panel.findChildren<QLabel*>("Credit").size()==1;
@@ -213,6 +227,8 @@ int main(int argc,char** argv) {
         return saved;
     };
     if(!save("01-home"))return 1;
+    if(!DockPreview::confirmedLinks(panel))return 62;
+    DockPreview::journalScene(panel);
     if(!click(QString::fromUtf8("Журнал"))||!save("22-delivery-log"))return 57;
     if(!click(QString::fromUtf8("Назад")))return 58;
     if(!click(QString::fromUtf8("Просмотр анонса"))||!save("23-announcement-preview"))return 59;

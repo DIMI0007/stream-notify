@@ -9,6 +9,9 @@
 #include <QDateTime>
 #include <QSet>
 #include <functional>
+#ifdef STREAM_NOTIFY_UI_PREVIEW
+struct DockPreview;
+#endif
 
 namespace sn {
 enum class LivePhase { Offline, Starting, Live, Reconnecting, Error };
@@ -20,6 +23,9 @@ struct LivePlatform {
 };
 
 class PlatformProbe final : public QObject {
+#ifdef STREAM_NOTIFY_UI_PREVIEW
+    friend struct ::DockPreview;
+#endif
 public:
     explicit PlatformProbe(QObject* parent=nullptr);
     void setChanged(std::function<void()> callback){changed_=std::move(callback);}

@@ -698,15 +698,24 @@ QWidget* StreamDock::buildJournal(){
     outer->addWidget(label(uiText("Последние отправки: получатель, время и результат. Неопределённая доставка автоматически не повторяется.","Recent deliveries: recipient, time and result. Unconfirmed deliveries are not retried blindly."),"Hint"));
     int count=0;
     for(const auto& event:store_.current.events){
-        if(!event.contains("TELEGRAM")&&!event.contains("DISCORD"))continue;
-        const bool ok=event.contains("SENT")||event.contains(" OK");
+        const auto code=event.mid(21).section(" | ",0,0);
+        if((!code.startsWith("MAIN_")&&!code.startsWith("MANUAL_")&&!code.startsWith("TEST_")&&!code.startsWith("SECOND_"))||(!code.contains("TELEGRAM")&&!code.contains("DISCORD")))continue;
+        const bool ok=code.endsWith("SENT")||code.endsWith("OK");
+        const bool failed=code.endsWith("FAILED")||code.endsWith("FAIL");
         const QString recipient=event.contains("TELEGRAM")?"Telegram":"Discord";
         const QString kind=event.contains("SECOND_")?uiText("Вторая платформа","Second platform"):
             event.contains("MANUAL_")?uiText("Ручное сообщение","Manual message"):event.contains("TEST_")?uiText("Проверка","Test"):uiText("Анонс","Announcement");
         QVBoxLayout* rows;auto* item=card(&rows);
         rows->addWidget(label(recipient+" · "+kind,"Section"));rows->addWidget(label(event.left(19),"Hint"));
-        rows->addWidget(label(ok?uiText("✓ Доставлено","✓ Delivered"):uiText("Доставка не подтверждена","Delivery unconfirmed"),ok?"Good":"Hint"));
-        const auto reason=event.section(" | ",1);if(!reason.isEmpty()&&!ok)rows->addWidget(label(serviceStatus(reason,isRu()),"Hint"));
+        rows->addWidget(label(ok?uiText("✓ Доставлено","✓ Delivered"):failed?uiText("Не отправлено","Not sent"):uiText("Доставка не подтверждена","Delivery unconfirmed"),ok?"Good":"Hint"));
+        const auto reason=event.section(" | ",1);
+        if(!reason.isEmpty()&&!ok){
+            const QString friendly=reason.contains("401")||reason.contains("403")||reason.contains("404")?uiText("Проверьте подключение получателя и права отправки.","Check recipient settings and posting permissions."):
+                reason.contains("429")?uiText("Сервис временно ограничил отправку. Попытки завершены.","The service rate-limited delivery. Attempts have ended."):
+                reason.contains("Network")||reason.contains("Connection")?uiText("Проверьте интернет, VPN или прокси. Сообщение могло дойти — сначала проверьте канал.","Check internet, VPN or proxy. The message may have arrived; check the channel before trying again."):
+                serviceStatus(reason,isRu());
+            auto* detail=label(friendly,"Hint");detail->setToolTip(reason);rows->addWidget(detail);
+        }
         outer->addWidget(item);++count;
     }
     if(!count)outer->addWidget(label(uiText("Отправок пока нет","No deliveries yet"),"Hint"));
