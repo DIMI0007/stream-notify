@@ -33,6 +33,7 @@
 [Как работают анонсы](docs/AUTO_ANNOUNCEMENTS_RU.md) · [Донаты](README_DONATIONS_RU.md) · [Общий стиль](docs/VISUAL_STYLE_RU.md) · [Конфиденциальность](PRIVACY.md) · [Лицензия](LICENSE)
 
 Разработчик: [OTMOPOZOK](https://www.youtube.com/channel/UCTAKYR3T2Ud8zZgNShgQfyw/).
+
 ## Поддержать проект
 
 Если плагины полезны вам, поддержите проект донатом. Ваша помощь поддерживает развитие плагинов, исправления и будущую разработку.
