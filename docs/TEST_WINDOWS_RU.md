@@ -12,19 +12,19 @@
 1. Полностью закройте OBS.
 2. Распакуйте ZIP.
 3. Скопируйте папку stream-notify в `C:\ProgramData\obs-studio\plugins\`.
-4. При обновлении замените старую папку целиком. Локальные настройки хранятся отдельно.
+4. При обновлении сначала удалите старую папку `stream-notify`, затем скопируйте новую целиком. Локальные настройки хранятся отдельно.
 5. Запустите OBS → Док-панели → Stream Notify.
 
 Структура:
 ```text
 plugins/
   stream-notify/
-    bin/64bit/stream-notify.dll
-    bin/64bit/Qt6WebSockets.dll
+    stream-notify.dll
+    Qt6WebSockets.dll
     data/qt-plugins/tls/qschannelbackend.dll
 ```
 Копирование только stream-notify.dll недостаточно. Нельзя оставлять внешнюю папку с именем ZIP.
-ProgramData скрыта: откройте путь через Win+R. OBS 33 ещё поддерживает этот legacy-каталог; для OBS 34 потребуется пересмотр установки.
+ProgramData скрыта: откройте путь через Win+R. Расположение DLL прямо в папке плагина соответствует новому формату OBS 33.
 PDB нужен для диагностики; SHA256.txt содержит контрольные суммы DLL.
 
 ## Telegram
