@@ -213,6 +213,12 @@ int main(int argc,char** argv) {
         return saved;
     };
     if(!save("01-home"))return 1;
+    if(!click(QString::fromUtf8("Журнал"))||!save("22-delivery-log"))return 57;
+    if(!click(QString::fromUtf8("Назад")))return 58;
+    if(!click(QString::fromUtf8("Просмотр анонса"))||!save("23-announcement-preview"))return 59;
+    auto* confirmedPreview=panel.findChild<QTextEdit*>("ConfirmedAnnouncementText");
+    if(!confirmedPreview||confirmedPreview->toPlainText().isEmpty())return 60;
+    if(!click(QString::fromUtf8("Назад")))return 61;
     auto* settingsShortcut=panel.findChild<QPushButton*>("SettingsShortcut");
     if(!settingsShortcut)return 54;
     settingsShortcut->click();pump();

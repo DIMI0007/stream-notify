@@ -61,6 +61,7 @@ public:
         setObjectName("Card");setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
         layout_=new QVBoxLayout(this);layout_->setContentsMargins(7,7,7,7);layout_->setSpacing(5);
         layout_->addWidget(text(phrase(ru_,"Потоки","Streams"),"Section"));
+        empty_=text(phrase(ru_,"Нет активных потоков","No active streams"));layout_->addWidget(empty_);
         rows_=new QWidget;rowsLayout_=new QVBoxLayout(rows_);
         rowsLayout_->setContentsMargins(0,0,0,0);rowsLayout_->setSpacing(5);layout_->addWidget(rows_);
         setToolTip(phrase(ru_,"Красный битрейт — просадка сейчас или за последние 5 минут. Учитываются устойчивое падение ниже 70% цели, сетевые потери и переподключение. Каждая платформа отслеживается отдельно.",
@@ -68,9 +69,8 @@ public:
     }
     void setOutputs(QVector<OutputView> outputs) {
         CpuScope scope;
-        if(outputs.isEmpty()) {
-            outputs={{"placeholder-youtube","YouTube","",{}},{"placeholder-twitch","Twitch","",{}}};
-        }
+        outputs.erase(std::remove_if(outputs.begin(),outputs.end(),[](const OutputView& output){return !output.stats.active&&!output.stats.reconnecting;}),outputs.end());
+        empty_->setVisible(outputs.isEmpty());rows_->setVisible(!outputs.isEmpty());
         QStringList keys;for(const auto& v:outputs)keys<<v.key;
         if(keys!=keys_) {
             while(auto* item=rowsLayout_->takeAt(0)){delete item->widget();delete item;}
@@ -118,7 +118,7 @@ public:
     }
 private:
     struct Row {QLabel *title,*state,*rate,*bytes;BitrateSparkline* graph;};
-    bool ru_;QVBoxLayout *layout_,*rowsLayout_;QWidget* rows_;QStringList keys_;QVector<Row> cards_;
+    bool ru_;QVBoxLayout *layout_,*rowsLayout_;QWidget* rows_;QLabel* empty_=nullptr;QStringList keys_;QVector<Row> cards_;
 };
 class ResourcePanel final : public QWidget {
 public:

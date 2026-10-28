@@ -506,12 +506,12 @@ QWidget* StreamDock::buildRegular()
     sn::CpuScope snCpuScope;
     auto* wrap = new QWidget;
     auto* vertical = column(wrap, 6, 0);
-    if(page_==Page::ManualMessage) {
+    if(page_==Page::ManualMessage||page_==Page::Journal||page_==Page::Preview) {
         auto* scroll=new QScrollArea;
         scroll->setWidgetResizable(true);
         scroll->viewport()->setObjectName("ScrollViewport");
         scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        auto* body=buildManualMessage();body->setObjectName("PageBody");
+        auto* body=page_==Page::Journal?buildJournal():page_==Page::Preview?buildAnnouncementPreview():buildManualMessage();body->setObjectName("PageBody");
         scroll->setWidget(body);vertical->addWidget(scroll,1);
         return wrap;
     }
@@ -571,6 +571,8 @@ QWidget* StreamDock::buildRegular()
         case Page::Interface: body = buildInterface(); break;
         case Page::Donations: body = buildDonations(); break;
         case Page::ManualMessage: body = buildManualMessage(); break;
+        case Page::Journal: body=buildJournal(); break;
+        case Page::Preview: body=buildAnnouncementPreview(); break;
     }
     body->setObjectName("PageBody");
     scroll->setWidget(body);
@@ -638,30 +640,37 @@ QWidget* StreamDock::buildHome()
     auto* announcementStatus=label(outcome,sent?"Good":"Hint");
     announcementStatus->setProperty("announcementStatus",true);
     v->addWidget(announcementStatus);
-    if(announcementAttempted_||!store_.current.lastTime.isEmpty()){
+    if(!store_.current.lastTime.isEmpty()){
         auto* historyRow=new QHBoxLayout;historyRow->setSpacing(7);
         const auto when=QDateTime::fromString(store_.current.lastTime,"yyyy-MM-dd HH:mm:ss");
         if(when.isValid()){
             const auto moment=when.date()==QDate::currentDate()?when.toString("HH:mm"):when.toString("dd.MM · HH:mm");
-            historyRow->addWidget(label(uiText("Последний анонс · ","Last announcement · ")+moment,"Hint"),1);
+            historyRow->addWidget(label(uiText("Последняя отправка · ","Last delivery · ")+moment,"Hint"),1);
         } else {
             historyRow->addStretch(1);
         }
-        historyRow->addWidget(deliveryIcon("Telegram",announcementAttempted_?statusName(telegram_):store_.current.lastTelegram));
-        historyRow->addWidget(deliveryIcon("Discord",announcementAttempted_?statusName(discord_):store_.current.lastDiscord));
+        historyRow->addWidget(deliveryIcon("Telegram",store_.current.lastTelegram));
+        historyRow->addWidget(deliveryIcon("Discord",store_.current.lastDiscord));
         v->addLayout(historyRow);
     }
     delivery->setToolTip(store_.current.lastTime+"\nTelegram: "+store_.current.lastTelegram+"\nDiscord: "+store_.current.lastDiscord+"\n"+statusText_);
     outer->addWidget(delivery);
 
+    auto* actions=new QHBoxLayout;actions->setSpacing(5);
+    auto* preview=btn(uiText("Просмотр анонса","Preview announcement"));preview->setObjectName("AnnouncementPreview");
+    connect(preview,&QPushButton::clicked,this,[this]{showPage(Page::Preview);});actions->addWidget(preview,1);
+    auto* journal=btn(uiText("Журнал","Delivery log"));journal->setObjectName("DeliveryJournal");
+    connect(journal,&QPushButton::clicked,this,[this]{showPage(Page::Journal);});actions->addWidget(journal,1);outer->addLayout(actions);
+
     auto* donations=card(&v);
-    section(v,uiText("Донаты за эфир","Stream donations"));
+    section(v,broadcasting_?uiText("Донаты за эфир","Stream donations"):uiText("Донаты","Donations"));
     auto* donationSummary=label(donationSummaryText(),"Hint");donationSummaryLabel_=donationSummary;
     donationSummary->setStyleSheet("font-size:13px;font-weight:600;color:#dce7f4;padding:2px 0;");
     donationSummary->setToolTip(uiText(
         "Полученные плагином реальные донаты за текущий/последний эфир, включая суммы ниже порога. Тесты и повторы исключены. Перезапуск OBS обнуляет эту сводку; журнал доставки сохраняется.",
         "Real donations observed during the current/last stream, including amounts below the announcement threshold. Tests and duplicates are excluded. This summary resets on OBS restart; delivery history remains saved."));
     v->addWidget(donationSummary);
+    donationSummary->setVisible(broadcasting_||donation_.sessionSummary().count>0||!store_.current.donations.enabled);
     if(store_.current.donations.enabled){
         auto addConnection=[&](const QString& name,const QString& status,QPointer<QLabel>& target){
             auto* row=new QHBoxLayout;row->setSpacing(6);auto* badge=new ServiceBadge(name);badge->setFixedSize(18,18);row->addWidget(badge);
@@ -679,6 +688,51 @@ QWidget* StreamDock::buildHome()
     auto* resources=new sn::ResourcePanel(isRu());resources->setObjectName("PluginResources");
     resources->setStyleSheet("QWidget#PluginResources{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
     resources->setUsage(usage_);resourcePanel_=resources;outer->addWidget(resources);
+    outer->addStretch();return body;
+}
+
+QWidget* StreamDock::buildJournal(){
+    auto* body=new QWidget;auto* outer=column(body,7,3);
+    auto* back=btn(uiText("← Назад","← Back"));connect(back,&QPushButton::clicked,this,[this]{showPage(Page::Home);});outer->addWidget(back);
+    outer->addWidget(label(uiText("Журнал отправок","Delivery log"),"Section"));
+    outer->addWidget(label(uiText("Последние отправки: получатель, время и результат. Неопределённая доставка автоматически не повторяется.","Recent deliveries: recipient, time and result. Unconfirmed deliveries are not retried blindly."),"Hint"));
+    int count=0;
+    for(const auto& event:store_.current.events){
+        if(!event.contains("TELEGRAM")&&!event.contains("DISCORD"))continue;
+        const bool ok=event.contains("SENT")||event.contains(" OK");
+        const QString recipient=event.contains("TELEGRAM")?"Telegram":"Discord";
+        const QString kind=event.contains("SECOND_")?uiText("Вторая платформа","Second platform"):
+            event.contains("MANUAL_")?uiText("Ручное сообщение","Manual message"):event.contains("TEST_")?uiText("Проверка","Test"):uiText("Анонс","Announcement");
+        QVBoxLayout* rows;auto* item=card(&rows);
+        rows->addWidget(label(recipient+" · "+kind,"Section"));rows->addWidget(label(event.left(19),"Hint"));
+        rows->addWidget(label(ok?uiText("✓ Доставлено","✓ Delivered"):uiText("Доставка не подтверждена","Delivery unconfirmed"),ok?"Good":"Hint"));
+        const auto reason=event.section(" | ",1);if(!reason.isEmpty()&&!ok)rows->addWidget(label(serviceStatus(reason,isRu()),"Hint"));
+        outer->addWidget(item);++count;
+    }
+    if(!count)outer->addWidget(label(uiText("Отправок пока нет","No deliveries yet"),"Hint"));
+    outer->addStretch();return body;
+}
+
+QString StreamDock::confirmedPreview(QString* error)const{
+    const auto now=QDateTime::currentDateTimeUtc();
+    const auto url=[&](const sn::LivePlatform& live){return broadcasting_&&live.phase==sn::LivePhase::Live&&live.confirmed&&live.checkedAt.isValid()&&live.checkedAt.secsTo(now)>=0&&live.checkedAt.secsTo(now)<90?live.url:QString();};
+    const auto youtube=url(platforms_.youtube()),twitch=url(platforms_.twitch());
+    if(youtube.isEmpty()&&twitch.isEmpty()){
+        if(error)*error=uiText("Нет недавно подтверждённого эфира. Запустите трансляцию и обновите проверку.","No recently confirmed live stream. Start streaming and refresh the check.");return {};
+    }
+    return renderAnnouncement(store_.current.message,youtube,twitch,{},error);
+}
+
+QWidget* StreamDock::buildAnnouncementPreview(){
+    auto* body=new QWidget;auto* outer=column(body,7,3);
+    auto* back=btn(uiText("← Назад","← Back"));connect(back,&QPushButton::clicked,this,[this]{showPage(Page::Home);});outer->addWidget(back);
+    outer->addWidget(label(uiText("Предварительный просмотр","Announcement preview"),"Section"));
+    outer->addWidget(label(uiText("Только ссылки на недавно подтверждённые эфиры. Открытие этой страницы ничего не отправляет.","Only recently confirmed live links. Opening this page sends nothing."),"Hint"));
+    QString error;const auto message=confirmedPreview(&error);
+    auto* preview=new QTextEdit;preview->setObjectName("ConfirmedAnnouncementText");preview->setReadOnly(true);preview->setPlainText(error.isEmpty()?message:error);preview->setMinimumHeight(170);outer->addWidget(preview);
+    auto* refresh=btn(uiText("Обновить проверку","Refresh check"));refresh->setEnabled(broadcasting_);connect(refresh,&QPushButton::clicked,this,[this]{probePlatforms();});outer->addWidget(refresh);
+    auto* use=btn(uiText("Открыть для ручной отправки","Open for manual delivery"));use->setEnabled(!message.isEmpty()&&error.isEmpty());
+    connect(use,&QPushButton::clicked,this,[this]{QString error;const auto message=confirmedPreview(&error);if(!error.isEmpty()||message.isEmpty()){rebuild();return;}manualDraft_=message;showPage(Page::ManualMessage);});outer->addWidget(use);
     outer->addStretch();return body;
 }
 
@@ -795,7 +849,7 @@ void StreamDock::sendManualMessage()
             if(channel==Channel::Telegram)manualTelegramStatus_=status;
             else manualDiscordStatus_=status;
             store_.addEvent(QString(channel==Channel::Telegram?"MANUAL_TELEGRAM ":"MANUAL_DISCORD ")+
-                (ok?"SENT":"NOT_CONFIRMED"));
+                (ok?"SENT":"NOT_CONFIRMED")+" | "+result.detail.left(240));
             if(--manualPending_==0){
                 manualSending_=false;
                 if(manualAllSent_)manualDraft_.clear();
@@ -1651,7 +1705,7 @@ void StreamDock::probePlatforms()
 void StreamDock::onPlatformsChanged()
 {
     if(shuttingDown_)return;
-    if(page_==Page::Connections)rebuild();
+    if(page_==Page::Connections||page_==Page::Preview)rebuild();
     if(!broadcasting_)return;
     for(const QString platform:{QString("YouTube"),QString("Twitch")}){
         const auto live=platform=="YouTube"?platforms_.youtube():platforms_.twitch();
@@ -1702,7 +1756,7 @@ void StreamDock::sendSecondPlatform(const QString& platform,const sn::LivePlatfo
                 result.status==Outcome::Unknown?"unknown":"failed";
             store_.save();
             store_.addEvent(QString("SECOND_%1_%2 ").arg(platform,channel==Channel::Telegram?"TELEGRAM":"DISCORD")+
-                (result.status==Outcome::Sent?"SENT":result.status==Outcome::Unknown?"UNKNOWN":"FAILED"));
+                (result.status==Outcome::Sent?"SENT":result.status==Outcome::Unknown?"UNKNOWN":"FAILED")+" | "+result.detail.left(240));
         });
     };
     send(Channel::Telegram);
@@ -1784,7 +1838,7 @@ void StreamDock::recordOutcome(Channel channel, const Delivery& delivery)
     if(delivery.status==Outcome::Sent)mainDelivered_=true;
     const QString name = channel == Channel::Telegram ? "MAIN_TELEGRAM" : "MAIN_DISCORD";
     store_.addEvent(name + ": " + (delivery.status == Outcome::Sent ? "SENT" :
-                              delivery.status == Outcome::Unknown ? "UNKNOWN" : "FAILED"));
+                              delivery.status == Outcome::Unknown ? "UNKNOWN" : "FAILED")+" | "+delivery.detail.left(240));
 }
 void StreamDock::complete()
 {
@@ -1824,7 +1878,7 @@ void StreamDock::testChannel(Channel channel)
         if(channel == Channel::Telegram) {testingTelegram_=false;transientTelegram_=text;}
         else {testingDiscord_=false;transientDiscord_=text;}
         store_.addEvent(QString(channel == Channel::Telegram ? "TEST_TELEGRAM " : "TEST_DISCORD ")+
-                        (d.status == Outcome::Sent ? "OK" : "FAIL"));
+                        (d.status == Outcome::Sent ? "OK" : "FAIL")+" | "+d.detail.left(240));
         rebuild();
     });
 }

@@ -32,7 +32,7 @@ public:
     bool wasLoadedCleanly() const { return loadedCleanly_; }
 private:
     enum class Phase { Idle, Counting, Sending, Result, Cancelled };
-    enum class Page { Home, Connections, Message, Interface, Donations, ManualMessage };
+    enum class Page { Home, Connections, Message, Interface, Donations, ManualMessage, Journal, Preview };
     enum class DonationPage { Services, Delivery, Amounts, Templates };
     DonationPage donationPage_ = DonationPage::Services;
     SettingsStore store_;
@@ -109,6 +109,9 @@ private:
     QWidget* buildRegular();
     QWidget* buildHome();
     QWidget* buildManualMessage();
+    QWidget* buildJournal();
+    QWidget* buildAnnouncementPreview();
+    QString confirmedPreview(QString* error) const;
     void sendManualMessage();
     QString donationSummaryText() const;
     QString donationConnectionText() const;
