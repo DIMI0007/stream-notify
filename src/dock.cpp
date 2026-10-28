@@ -480,14 +480,7 @@ void StreamDock::rebuildNow()
     credit->setOpenExternalLinks(true);credit->setAlignment(Qt::AlignCenter);
     credit->setFixedHeight(20);credit->setStyleSheet("color:#9299a5;background:#080f18;font-size:11px;");
     footer->addWidget(credit);
-    auto* trafficFooter=new QLabel(this);trafficFooter->setObjectName("SessionTrafficFooter");trafficFooter->setAlignment(Qt::AlignCenter);
-    trafficFooter->setStyleSheet("color:#72e9f4;font-size:10px;background:#080f18;");
-    trafficFooter->setFixedHeight(16);
-    trafficFooter->setToolTip(uiText("Трафик HTTP и WebSocket этого плагина с запуска OBS; без видео и сетевых заголовков",
-        "This plugin's HTTP and WebSocket data since OBS started; excludes video and network headers"));
-    trafficFooter_=trafficFooter;footer->addWidget(trafficFooter);root_->addWidget(footerWidget);
-    trafficFooter->setText(uiText("Трафик за сеанс · ","Session traffic · ")+QString::fromUtf8("↑ ")+sn::volume(double(usage_.txTotal),isRu())+
-        QString::fromUtf8("  |  ↓ ")+sn::volume(double(usage_.rxTotal),isRu()));
+    root_->addWidget(footerWidget);
     if(!pendingFocus_.isEmpty()) {
         QPointer<QLineEdit> field=findChild<QLineEdit*>(pendingFocus_);
         pendingFocus_.clear();
@@ -685,9 +678,6 @@ QWidget* StreamDock::buildHome()
     auto* outputs=new sn::OutputPanel(isRu());outputs->setObjectName("OutputMonitor");
     outputs->setStyleSheet("QWidget#OutputMonitor{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
     outputs->setOutputs(monitor_.views());outputPanel_=outputs;outer->addWidget(outputs);
-    auto* resources=new sn::ResourcePanel(isRu());resources->setObjectName("PluginResources");
-    resources->setStyleSheet("QWidget#PluginResources{background:#0c1520;border:1px solid #263244;border-radius:8px;}");
-    resources->setUsage(usage_);resourcePanel_=resources;outer->addWidget(resources);
     outer->addStretch();return body;
 }
 
@@ -1927,7 +1917,6 @@ void StreamDock::refreshTelemetry() {
         buffers=census.bytes();
     }
     usage_=usageSampler_.sample(buffers);
-    if(show){if(outputPanel_)outputPanel_->setOutputs(monitor_.views());if(resourcePanel_)resourcePanel_->setUsage(usage_);}
-    if(trafficFooter_)trafficFooter_->setText(uiText("Трафик за сеанс · ","Session traffic · ")+QString::fromUtf8("↑ ")+sn::volume(double(usage_.txTotal),isRu())+
-        QString::fromUtf8("  |  ↓ ")+sn::volume(double(usage_.rxTotal),isRu()));
+    sn::measuredDataBytes.store(usage_.buffers,std::memory_order_relaxed);
+    if(show&&outputPanel_)outputPanel_->setOutputs(monitor_.views());
 }

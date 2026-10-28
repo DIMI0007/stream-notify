@@ -25,6 +25,13 @@ extern "C" __declspec(dllexport) bool stream_notify_telemetry_v1(uint64_t* sent,
     *received=totals.rx;
     return true;
 }
+extern "C" __declspec(dllexport) bool stream_notify_telemetry_v2(uint64_t* sent,uint64_t* received,uint64_t* cpuNs,uint64_t* dataBytes){
+    if(!sent||!received||!cpuNs||!dataBytes)return false;
+    const auto totals=sn::Meter::instance().totals();
+    *sent=totals.tx;*received=totals.rx;*cpuNs=totals.cpuNs;
+    *dataBytes=sn::measuredDataBytes.load(std::memory_order_relaxed);
+    return true;
+}
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Stream Notify Contributors")

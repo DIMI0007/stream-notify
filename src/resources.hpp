@@ -16,6 +16,7 @@
 #endif
 
 namespace sn {
+inline std::atomic<uint64_t> measuredDataBytes{0};
 // All counters belong to this DLL. No process-wide CPU/RAM figures are used.
 struct MeterTotals {uint64_t cpuNs=0,tx=0,rx=0,scopes=0;};
 class Meter {

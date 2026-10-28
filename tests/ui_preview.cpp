@@ -30,7 +30,7 @@ struct DockPreview {
         panel.platforms_.youtube_=previous;panel.broadcasting_=broadcasting;return valid;
     }
     static bool singleFooter(StreamDock& panel){
-        return panel.findChildren<QLabel*>("SessionTrafficFooter").size()==1&&
+        return panel.findChildren<QLabel*>("SessionTrafficFooter").isEmpty()&&
                panel.findChildren<QLabel*>("Credit").size()==1;
     }
     static void rebuild(StreamDock& panel){panel.rebuild();}
@@ -355,7 +355,7 @@ int main(int argc,char** argv) {
     std::cerr<<"Monitor UI pumped\n";
     std::cerr<<"Monitor widgets: output="<<(panel.findChild<QWidget*>("OutputMonitor")!=nullptr)
         <<" resources="<<(panel.findChild<QWidget*>("PluginResources")!=nullptr)<<"\n";
-    if(!panel.findChild<QWidget*>("OutputMonitor") || !panel.findChild<QWidget*>("PluginResources"))return 40;
+    if(!panel.findChild<QWidget*>("OutputMonitor") || panel.findChild<QWidget*>("PluginResources"))return 40;
     const auto outputs=DockPreview::outputViews(panel);
     std::cerr<<"Monitor views: "<<outputs.size()<<"\n";
     if(outputs.size()!=2 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem){
