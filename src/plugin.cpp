@@ -15,7 +15,16 @@
 #include <QSslSocket>
 #include <util/bmem.h>
 #include "dock.hpp"
+#include "resources.hpp"
 #include "version.hpp"
+
+extern "C" __declspec(dllexport) bool stream_notify_telemetry_v1(uint64_t* sent,uint64_t* received){
+    if(!sent||!received)return false;
+    const auto totals=sn::Meter::instance().totals();
+    *sent=totals.tx;
+    *received=totals.rx;
+    return true;
+}
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_AUTHOR("Stream Notify Contributors")
