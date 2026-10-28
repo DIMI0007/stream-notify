@@ -7,6 +7,7 @@
 | ![Stream Notify home dock](screenshots/home.png) | ![Outputs, bitrate, and graphs](screenshots/monitoring.png) |
 
 *Version 1.0.10 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
+[Narrow 275 px dock](screenshots/home-narrow.png).
 
 ## Features
 

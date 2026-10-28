@@ -9,6 +9,7 @@
 | ![Главная панель Stream Notify](docs/screenshots/home.png) | ![Потоки, битрейт и графики Stream Notify](docs/screenshots/monitoring.png) |
 
 *Снимки интерфейса 1.0.10 созданы в тестовом окружении. Подключения и потоки на них демонстрационные.*
+[Узкая панель 275 px](docs/screenshots/home-narrow.png).
 
 ## Возможности
 
