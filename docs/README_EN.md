@@ -1,17 +1,18 @@
 # Stream Notify
 
-**Stream and donation announcements from OBS to Telegram and Discord.** The plugin runs on your computer without a project-operated server. [Русский](../README.md).
+**Twitch, YouTube and Kick stream announcements, plus donation messages from OBS to Telegram and Discord.** The plugin runs on your computer without a project-operated server. [Русский](../README.md).
 
 | Waiting for a stream | During a broadcast |
 | --- | --- |
 | ![Stream Notify home dock](screenshots/home.png) | ![Outputs, bitrate, and graphs](screenshots/monitoring.png) |
 
-*Version 1.0.13 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
+*Version 1.0.14 UI previews were made in an isolated test environment. Shown accounts and outputs are sample data.*
 [Narrow 275 px dock](screenshots/home-narrow.png).
 
 ## Features
 
-- Send an automatic announcement after the YouTube or Twitch API confirms a live broadcast. A second-platform announcement and manual fallback links are configurable. [Verification details](AUTO_ANNOUNCEMENTS_RU.md).
+- Recognize Twitch, YouTube and Kick outputs, with a separate tile, bitrate, graph and transferred data for each service.
+- Send an automatic announcement after a service confirms a live broadcast. A later second or third platform announcement and fallback links are configurable. [Verification details](AUTO_ANNOUNCEMENTS_RU.md).
 - Set recipients, text, and announcement delay in the OBS dock. See the latest delivery result at a glance.
 - Receive DonationAlerts and DonatePay donation notifications with sender, amount, message, and configurable thresholds. [Donation setup](../README_DONATIONS_RU.md).
 - Monitor active outputs: **LIVE**, current bitrate, a graph of the last 30 minutes, and transferred data.
@@ -19,7 +20,7 @@
 
 ## How the plugins work together
 
-Stream Notify works on its own when you sign in here and configure recipients. If Stream Chat is installed, Notify may use its protected sign-ins only to check live status. Stream Stats can read Notify's local counters; it does not send announcements.
+Stream Notify works on its own when you sign in here and configure recipients. If Stream Chat is installed, Notify may use its protected Twitch and YouTube sign-ins and its Kick channel name only to check live status. Stream Stats can read Notify's local counters; it does not send announcements.
 
 ## Install
 
