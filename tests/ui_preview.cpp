@@ -89,11 +89,13 @@ struct DockPreview {
         streamPreviewOutputs.clear();
         StreamPreviewOutput youtube{true,true};youtube.name="Aitum YouTube";youtube.platform="YouTube";youtube.id=1;
         StreamPreviewOutput twitch{true,true};twitch.name="Aitum Twitch";twitch.platform="Twitch";twitch.id=2;
-        streamPreviewOutputs={youtube,twitch};
+        StreamPreviewOutput kick{true,true};kick.name="Aitum Kick";kick.platform="Kick";kick.id=3;
+        streamPreviewOutputs={youtube,twitch,kick};
         for(int64_t ms=0;ms<=30000;ms+=2000) {
             if(ms) {
                 streamPreviewOutputs[0].bytes+=1500000;streamPreviewOutputs[0].frames+=120;
                 streamPreviewOutputs[1].bytes+=ms>=12000?650000:1500000;streamPreviewOutputs[1].frames+=120;
+                streamPreviewOutputs[2].bytes+=1250000;streamPreviewOutputs[2].frames+=120;
                 if(ms==20000)streamPreviewOutputs[1].dropped=12;
             }
             panel.monitor_.sample(ms);
@@ -126,13 +128,14 @@ struct DockPreview {
         panel.monitor_.sample(36000);
         streamPreviewOutputs.clear(); // Twitch output disappears later.
         const auto views=panel.monitor_.sample(38000);
-        bool youtube=false,twitch=false;
+        bool youtube=false,twitch=false,kick=false;
         for(const auto& view:views) {
             if(view.platform=="YouTube")youtube=!view.stats.active&&view.stats.bytes>0;
             if(view.platform=="Twitch")twitch=!view.stats.active&&view.stats.bytes>0;
+            if(view.platform=="Kick")kick=!view.stats.active&&view.stats.bytes>0;
         }
-        if(!youtube||!twitch)return false;
-        StreamPreviewOutput restarted{true,true};restarted.id=3;restarted.name="New YouTube";restarted.platform="YouTube";
+        if(!youtube||!twitch||!kick)return false;
+        StreamPreviewOutput restarted{true,true};restarted.id=4;restarted.name="New YouTube";restarted.platform="YouTube";
         restarted.bytes=1000;restarted.frames=1;
         streamPreviewOutputs={restarted};
         const auto restartedViews=panel.monitor_.sample(40000);
@@ -237,6 +240,7 @@ int main(int argc,char** argv) {
     if(!save("01-home"))return 1;
     if(!DockPreview::confirmedLinks(panel))return 62;
     if(!DockPreview::personalTwitchClient(panel))return 75;
+    if(sn::platformFor("Kick output","", "rtmps://example.global-contribute.live-video.net:443/app")!="Kick"||sn::platformFor("Other output","", "rtmps://example.global-contribute.live-video.net:443/app")!="RTMP")return 76;
     DockPreview::journalScene(panel);
     if(!click(QString::fromUtf8("Журнал"))||!save("22-delivery-log"))return 57;
     if(!click(QString::fromUtf8("Назад")))return 58;
@@ -280,7 +284,7 @@ int main(int argc,char** argv) {
     // Home offers channel setup; stream URLs remain editable in Connections.
     if(!click(QString::fromUtf8("Настроить")) || !save("02-connections"))return 31;
     if(!panel.findChild<QLineEdit*>("TelegramToken") ||
-       !panel.findChild<QLineEdit*>("YouTubeUrl") || !panel.findChild<QLineEdit*>("TwitchUrl"))return 32;
+       !panel.findChild<QLineEdit*>("YouTubeUrl") || !panel.findChild<QLineEdit*>("TwitchUrl")||!panel.findChild<QLineEdit*>("KickUrl"))return 32;
     if(panel.findChild<QWidget*>("PluginResources") || panel.findChild<QWidget*>("OutputMonitor"))return 42;
     if(!click(QString::fromUtf8("Сообщение")) || !save("03-message"))return 1;
     if(!click(QString::fromUtf8("Интерфейс")) || !click(QString("English")))return 1;
@@ -367,7 +371,7 @@ int main(int argc,char** argv) {
     if(!panel.findChild<QWidget*>("OutputMonitor") || panel.findChild<QWidget*>("PluginResources"))return 40;
     const auto outputs=DockPreview::outputViews(panel);
     std::cerr<<"Monitor views: "<<outputs.size()<<"\n";
-    if(outputs.size()!=2 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem){
+    if(outputs.size()!=3 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem||outputs[2].platform!="Kick"||outputs[2].stats.recentProblem){
         std::cerr<<"Unexpected monitor demo outputs: "<<outputs.size()<<"\n";
         for(const auto& output:outputs)
             std::cerr<<output.platform.toStdString()<<" bytes="<<output.stats.bytes

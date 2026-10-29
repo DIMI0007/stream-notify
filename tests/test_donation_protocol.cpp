@@ -39,6 +39,10 @@ int main(int argc,char** argv){
             !youtubeOnly.contains("Twitch:"),"YouTube-only link rendering failed");
     const QString both=renderAnnouncement(mainTemplate,"https://www.youtube.com/watch?v=abc","https://www.twitch.tv/test",{},&problem);
     require(problem.isEmpty()&&both.contains("YouTube:")&&both.contains("Twitch:"),"Two-platform link rendering failed");
+    const auto kickOnly=renderAnnouncement("Live!\nYouTube: {youtube}\nTwitch: {twitch}\nKick: {kick}",{},{},"Kick",&problem,"https://kick.com/example");
+    require(problem.isEmpty()&&kickOnly.contains("Kick: https://kick.com/example")&&!kickOnly.contains("YouTube:")&&!kickOnly.contains("Twitch:"),"Kick-only announcement failed");
+    const auto allThree=renderAnnouncement("{stream_url}","https://youtube.com/watch?v=abc","https://twitch.tv/example",{},&problem,"https://kick.com/example");
+    require(problem.isEmpty()&&allThree.split('\n').size()==3&&allThree.contains("kick.com/example"),"Three-platform announcement lost a link");
     store.current.deliveryJournal["main|youtube|id|telegram"]="sent";
     require(store.save(),"Announcement delivery journal not saved");
     SettingsStore restored;require(restored.load()&&restored.current.deliveryJournal.value("main|youtube|id|telegram")=="sent",

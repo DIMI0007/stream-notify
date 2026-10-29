@@ -715,11 +715,11 @@ QWidget* StreamDock::buildJournal(){
 QString StreamDock::confirmedPreview(QString* error)const{
     const auto now=QDateTime::currentDateTimeUtc();
     const auto url=[&](const sn::LivePlatform& live){return broadcasting_&&live.phase==sn::LivePhase::Live&&live.confirmed&&live.checkedAt.isValid()&&live.checkedAt.secsTo(now)>=0&&live.checkedAt.secsTo(now)<90?live.url:QString();};
-    const auto youtube=url(platforms_.youtube()),twitch=url(platforms_.twitch());
-    if(youtube.isEmpty()&&twitch.isEmpty()){
+    const auto youtube=url(platforms_.youtube()),twitch=url(platforms_.twitch()),kick=url(platforms_.kick());
+    if(youtube.isEmpty()&&twitch.isEmpty()&&kick.isEmpty()){
         if(error)*error=uiText("Нет недавно подтверждённого эфира. Запустите трансляцию и обновите проверку.","No recently confirmed live stream. Start streaming and refresh the check.");return {};
     }
-    return renderAnnouncement(store_.current.message,youtube,twitch,{},error);
+    return renderAnnouncement(store_.current.message,youtube,twitch,{},error,kick);
 }
 
 QWidget* StreamDock::buildAnnouncementPreview(){
@@ -1016,6 +1016,10 @@ QWidget* StreamDock::buildConnections()
     section(v,uiText("Подтверждение активности","Live verification"));
     v->addWidget(label(uiText("Можно войти здесь или использовать аккаунты Stream Chat. Защищённые токены Stream Chat читаются только для проверки эфира.",
                               "Sign in here or use Stream Chat accounts. Protected Stream Chat tokens are read only to verify live status."),"Hint"));
+    v->addWidget(label("Kick", "Hint"));auto* ki=new QLineEdit(store_.current.kickUrl);ki->setObjectName("KickUrl");ki->setPlaceholderText("https://kick.com/channel");
+    connect(ki,&QLineEdit::textChanged,this,[this](const QString& value){store_.current.kickUrl=value;changeSettings();});v->addWidget(ki);
+    v->addWidget(label(uiText("Можно оставить пустым, если канал Kick настроен в Stream Chat.","Leave empty to use the Kick channel configured in Stream Chat."),"Hint"));
+    if(!platforms_.kick().error.isEmpty())v->addWidget(label(platforms_.kick().error,"Hint"));
     v->addWidget(label(platforms_.youtubeAccount(),"Hint"));
     if(!platforms_.youtube().error.isEmpty())v->addWidget(label(platforms_.youtube().error,"Hint"));
     auto* ytLogin=btn(uiText("Войти в YouTube","Sign in to YouTube"));
@@ -1046,7 +1050,7 @@ QWidget* StreamDock::buildMessage()
     templ->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Maximum);
     v->setAlignment(Qt::AlignTop);
     section(v, uiText("Шаблон уведомления", "Notification template"));
-    v->addWidget(label(uiText("{youtube}, {twitch}, {youtube_url}, {twitch_url}, {stream_url}", "{youtube}, {twitch}, {youtube_url}, {twitch_url}, {stream_url}"), "Hint"));
+    v->addWidget(label(uiText("{youtube}, {twitch}, {kick}, {youtube_url}, {twitch_url}, {kick_url}, {stream_url}", "{youtube}, {twitch}, {kick}, {youtube_url}, {twitch_url}, {kick_url}, {stream_url}"), "Hint"));
     auto* edit = new QTextEdit;
     edit->setFixedHeight(store_.current.compact?92:120);
     edit->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
@@ -1054,7 +1058,7 @@ QWidget* StreamDock::buildMessage()
     connect(edit, &QTextEdit::textChanged, this, [this,edit] {store_.current.message=edit->toPlainText();changeSettings();});
     v->addWidget(edit);
     auto* tokens = new QHBoxLayout;
-    for (const QString& t : {QString("{youtube}"), QString("{twitch}")}) {
+    for (const QString& t : {QString("{youtube}"), QString("{twitch}"), QString("{kick}")}) {
         auto* button = btn(t);
         connect(button, &QPushButton::clicked, this, [edit,t] {edit->insertPlainText(t);});
         tokens->addWidget(button);
@@ -1068,8 +1072,8 @@ QWidget* StreamDock::buildMessage()
     secondEnabled->setChecked(store_.current.secondAnnouncementEnabled);
     connect(secondEnabled,&QCheckBox::toggled,this,[this](bool enabled){store_.current.secondAnnouncementEnabled=enabled;changeSettings();});
     v->addWidget(secondEnabled);
-    v->addWidget(label(uiText("Переменные: {platform}, {stream_url}, {youtube_url}, {twitch_url}",
-                             "Variables: {platform}, {stream_url}, {youtube_url}, {twitch_url}"),"Hint"));
+    v->addWidget(label(uiText("Переменные: {platform}, {stream_url}, {youtube_url}, {twitch_url}, {kick_url}",
+                             "Variables: {platform}, {stream_url}, {youtube_url}, {twitch_url}, {kick_url}"),"Hint"));
     auto* secondEdit=new QTextEdit;secondEdit->setFixedHeight(store_.current.compact?90:112);
     secondEdit->setPlainText(store_.current.secondMessage);
     connect(secondEdit,&QTextEdit::textChanged,this,[this,secondEdit]{store_.current.secondMessage=secondEdit->toPlainText();changeSettings();});
@@ -1272,7 +1276,7 @@ QWidget* StreamDock::buildDonations()
         test.message=uiText("Спасибо за стрим!","Thanks for the stream!");test.currency="RUB";
         const auto values=store_.current.donations.thresholds.value("RUB");
         test.amount=values.size()==3?values.at(select->currentIndex()):100;
-        const QString url=!store_.current.youtubeUrl.isEmpty()?store_.current.youtubeUrl:store_.current.twitchUrl;
+        const QString url=!store_.current.youtubeUrl.isEmpty()?store_.current.youtubeUrl:!store_.current.twitchUrl.isEmpty()?store_.current.twitchUrl:store_.current.kickUrl;
         preview->setText(donationMessage(test,store_.current.donations,select->currentIndex(),url));
     };
     connect(select,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,editor,updatePreview](int idx){
@@ -1695,13 +1699,14 @@ void StreamDock::probePlatforms()
 {
     if(shuttingDown_||!broadcasting_)return;
     const auto outputs=monitor_.sample(telemetryClock_.elapsed());
-    bool youtubeOutput=false,twitchOutput=false;
+    bool youtubeOutput=false,twitchOutput=false,kickOutput=false;
     for(const auto& output:outputs){
         if(!output.stats.active)continue;
         if(output.platform=="YouTube")youtubeOutput=true;
         if(output.platform=="Twitch")twitchOutput=true;
+        if(output.platform=="Kick")kickOutput=true;
     }
-    platforms_.check(youtubeOutput,twitchOutput,store_.current.youtubeUrl,store_.current.twitchUrl);
+    platforms_.check(youtubeOutput,twitchOutput,store_.current.youtubeUrl,store_.current.twitchUrl,kickOutput,store_.current.kickUrl);
 }
 
 void StreamDock::onPlatformsChanged()
@@ -1709,8 +1714,8 @@ void StreamDock::onPlatformsChanged()
     if(shuttingDown_)return;
     if(page_==Page::Connections||page_==Page::Preview)rebuild();
     if(!broadcasting_)return;
-    for(const QString platform:{QString("YouTube"),QString("Twitch")}){
-        const auto live=platform=="YouTube"?platforms_.youtube():platforms_.twitch();
+    for(const QString platform:{QString("YouTube"),QString("Twitch"),QString("Kick")}){
+        const auto live=platform=="YouTube"?platforms_.youtube():platform=="Twitch"?platforms_.twitch():platforms_.kick();
         const QString oldId=mainIds_.value(platform);
         if(!oldId.startsWith("manual:")||!live.confirmed||live.phase!=sn::LivePhase::Live||live.id.isEmpty())continue;
         for(const auto channel:{Channel::Telegram,Channel::Discord}){
@@ -1722,11 +1727,12 @@ void StreamDock::onPlatformsChanged()
         mainIds_[platform]=live.id;store_.save();
     }
     if(!mainDelivered_||!store_.current.secondAnnouncementEnabled)return;
-    if(mainIds_.size()!=1)return;
-    const QString other=mainIds_.contains("YouTube")?"Twitch":"YouTube";
-    const auto live=other=="YouTube"?platforms_.youtube():platforms_.twitch();
-    if(live.phase!=sn::LivePhase::Live||!live.confirmed||live.id.isEmpty()||mainIds_.contains(other))return;
-    sendSecondPlatform(other,live);
+    if(mainIds_.isEmpty())return;
+    for(const QString other:{QString("YouTube"),QString("Twitch"),QString("Kick")}){
+        const auto live=other=="YouTube"?platforms_.youtube():other=="Twitch"?platforms_.twitch():platforms_.kick();
+        if(live.phase!=sn::LivePhase::Live||!live.confirmed||live.id.isEmpty()||mainIds_.contains(other))continue;
+        sendSecondPlatform(other,live);
+    }
 }
 
 void StreamDock::sendSecondPlatform(const QString& platform,const sn::LivePlatform& live)
@@ -1737,7 +1743,7 @@ void StreamDock::sendSecondPlatform(const QString& platform,const sn::LivePlatfo
     const QString youtube=platform=="YouTube"?live.url:QString();
     const QString twitch=platform=="Twitch"?live.url:QString();
     QString error;
-    const QString message=renderAnnouncement(store_.current.secondMessage,youtube,twitch,platform,&error);
+    const QString message=renderAnnouncement(store_.current.secondMessage,youtube,twitch,platform,&error,platform=="Kick"?live.url:QString());
     if(!error.isEmpty()){
         store_.addEvent("SECOND_TEMPLATE_ERROR "+error);secondPending_.remove(pending);return;
     }
@@ -1771,10 +1777,11 @@ void StreamDock::dispatch()
     sn::CpuScope snCpuScope;
     if (phase_ != Phase::Counting) return;
     if (!anyStreamingOutputActive() || !broadcasting_) {cancelCurrent("Stream inactive");return;}
-    const auto youtube=platforms_.youtube(),twitch=platforms_.twitch();
+    const auto youtube=platforms_.youtube(),twitch=platforms_.twitch(),kick=platforms_.kick();
     const bool ytLive=youtube.phase==sn::LivePhase::Live&&!youtube.id.isEmpty()&&validStreamUrl(youtube.url);
     const bool twLive=twitch.phase==sn::LivePhase::Live&&!twitch.id.isEmpty()&&validStreamUrl(twitch.url);
-    if(!ytLive&&!twLive){
+    const bool kiLive=kick.phase==sn::LivePhase::Live&&!kick.id.isEmpty()&&validStreamUrl(kick.url);
+    if(!ytLive&&!twLive&&!kiLive){
         cancelCurrent("No active platform");
         statusText_=uiText("Активные трансляции не подтверждены: анонс не отправлен",
                            "No active platform verified: announcement not sent");
@@ -1782,11 +1789,12 @@ void StreamDock::dispatch()
     }
     if(ytLive)mainIds_["YouTube"]=youtube.id;
     if(twLive)mainIds_["Twitch"]=twitch.id;
+    if(kiLive)mainIds_["Kick"]=kick.id;
     announcementAttempted_=true;
     activePending_ = 0;
     telegramMainKeys_.clear();discordMainKeys_.clear();
     const quint64 key = generation_;
-    auto prepare = [this,ytLive,twLive,&youtube,&twitch](Channel channel,Delivery& outcome,QStringList& keys)->QString {
+    auto prepare = [this,ytLive,twLive,kiLive,&youtube,&twitch,&kick](Channel channel,Delivery& outcome,QStringList& keys)->QString {
         if(outcome.status!=Outcome::Waiting)return {};
         if(channel==Channel::Telegram&&!validTelegram(session_.token,session_.chat)){
             outcome={Outcome::NotConfigured,"Check BotFather token and Chat ID",0};return {};
@@ -1794,15 +1802,18 @@ void StreamDock::dispatch()
         if(channel==Channel::Discord&&!validDiscord(session_.webhook)){
             outcome={Outcome::NotConfigured,"Check Discord webhook URL",0};return {};
         }
-        QString ytUrl,twUrl;
+        QString ytUrl,twUrl,kiUrl;
         if(ytLive){const QString k=announcementKey("main","YouTube",youtube.id,channel);
             if(!store_.current.deliveryJournal.contains(k)){ytUrl=youtube.url;keys<<k;}
             else if(store_.current.deliveryJournal.value(k)=="sent")mainDelivered_=true;}
         if(twLive){const QString k=announcementKey("main","Twitch",twitch.id,channel);
             if(!store_.current.deliveryJournal.contains(k)){twUrl=twitch.url;keys<<k;}
             else if(store_.current.deliveryJournal.value(k)=="sent")mainDelivered_=true;}
+        if(kiLive){const QString k=announcementKey("main","Kick",kick.id,channel);
+            if(!store_.current.deliveryJournal.contains(k)){kiUrl=kick.url;keys<<k;}
+            else if(store_.current.deliveryJournal.value(k)=="sent")mainDelivered_=true;}
         if(keys.isEmpty()){outcome={Outcome::Disabled,"Already announced",0};return {};}
-        QString error;const QString message=renderAnnouncement(mainTemplate_,ytUrl,twUrl,{},&error);
+        QString error;const QString message=renderAnnouncement(mainTemplate_,ytUrl,twUrl,{},&error,kiUrl);
         if(!error.isEmpty()){outcome={Outcome::Failed,error,0};keys.clear();return {};}
         for(const auto& k:keys)store_.current.deliveryJournal[k]="reserved";
         if(!store_.save()){

@@ -73,7 +73,7 @@ protected:
             return;
         }
         QColor color=name_=="Telegram"?QColor("#009aef"):name_=="Discord"?QColor("#5865f2"):
-            name_=="YouTube"?QColor("#ff1538"):name_=="Twitch"?QColor("#9146ff"):
+            name_=="YouTube"?QColor("#ff1538"):name_=="Twitch"?QColor("#9146ff"):name_=="Kick"?QColor("#53fc18"):
             name_=="DonationAlerts"?QColor("#f47e20"):name_=="DonatePay"?QColor("#10bb7c"):name_=="Waiting"?QColor("#3d3219"):QColor("#06382c");
         p.setPen(Qt::NoPen);p.setBrush(color);p.drawRoundedRect(QRectF(0,0,32,32),9,9);
         p.setBrush(Qt::white);
@@ -89,6 +89,9 @@ protected:
             shape.lineTo(28,23);shape.lineTo(22,26);shape.lineTo(20,23);shape.lineTo(12,23);
             shape.lineTo(10,26);shape.lineTo(4,23);shape.closeSubpath();p.drawPath(shape);
             p.setBrush(color);p.drawEllipse(QPointF(12,17),2,2.5);p.drawEllipse(QPointF(20,17),2,2.5);
+        } else if(name_=="Kick") {
+            p.setBrush(QColor("#10200c"));const int pixels[][2]={{0,0},{0,1},{0,2},{0,3},{0,4},{1,2},{2,1},{2,2},{2,3},{3,0},{3,1},{3,3},{3,4}};
+            for(const auto& cell:pixels)p.drawRect(QRectF(8+cell[0]*4,6+cell[1]*4,4,4));
         } else if(name_=="Twitch") {
             QPainterPath bubble;bubble.moveTo(7,6);bubble.lineTo(26,6);bubble.lineTo(26,21);
             bubble.lineTo(20,27);bubble.lineTo(14,27);bubble.lineTo(10,30);bubble.lineTo(10,25);bubble.lineTo(7,25);bubble.closeSubpath();

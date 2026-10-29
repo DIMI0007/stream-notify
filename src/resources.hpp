@@ -68,7 +68,7 @@ inline void account(BufferCensus& c,const Snapshot& s) {
     c.add(s.token);c.add(s.chat);c.add(s.webhook);c.add(s.message);
 }
 inline void account(BufferCensus& c,const Settings& s) {
-    for(const auto* value:{&s.telegramToken,&s.telegramChat,&s.discordWebhook,&s.youtubeUrl,&s.twitchUrl,
+    for(const auto* value:{&s.telegramToken,&s.telegramChat,&s.discordWebhook,&s.youtubeUrl,&s.twitchUrl,&s.kickUrl,
         &s.message,&s.locale,&s.lastTelegram,&s.lastDiscord,&s.lastTime})c.add(*value);
     for(const auto& event:s.events)c.add(event);
     const auto& d=s.donations;

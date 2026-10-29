@@ -14,6 +14,7 @@
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <algorithm>
+#include <QRegularExpression>
 
 namespace sn {
 namespace {
@@ -59,7 +60,7 @@ PlatformProbe::PlatformProbe(QObject* parent):QObject(parent),googleLogin_(this)
     ownYouTube_(accountPath("youtube-account.dat",false)),
     ownTwitch_(accountPath("twitch-account.dat",false)),
     chatYouTube_(accountPath("youtube-account.dat",true)),
-    chatTwitch_(accountPath("twitch-account.dat",true)){
+    chatTwitch_(accountPath("twitch-account.dat",true)),chatKick_(accountPath("kick-account.dat",true)){
     twitchDeviceTimer_.setSingleShot(true);
     connect(&twitchDeviceTimer_,&QTimer::timeout,this,[this]{pollTwitchDevice();});
     connect(&googleLogin_,&OAuthLoopback::failed,this,[this](const QString&){failYouTube("YouTube authorization cancelled or expired");});
@@ -161,13 +162,48 @@ void PlatformProbe::request(const QUrl& url,const QByteArray& method,const QByte
         if(epoch==epoch_&&!stopping_)done(http,data);
     });
 }
-void PlatformProbe::check(bool youtubeOutput,bool twitchOutput,const QString& youtubeFallback,const QString& twitchFallback){
+void PlatformProbe::check(bool youtubeOutput,bool twitchOutput,const QString& youtubeFallback,const QString& twitchFallback,bool kickOutput,const QString& kickFallback){
     if(stopping_)return;
+    if(kickOutput&&!kickLocal_){kickManualId_="manual:kick:"+QString::number(QDateTime::currentMSecsSinceEpoch());kickRetryAt_={};}
+    kickLocal_=kickOutput;kickFallback_=kickFallback.trimmed();
     youtubeLocal_=youtubeOutput;twitchLocal_=twitchOutput;
     youtubeFallback_=youtubeFallback.trimmed();twitchFallback_=twitchFallback.trimmed();
     if(!available(youtubeToken_)||!available(twitchToken_))loadAccounts();
     if(!twitchBusy_)checkTwitch();
+    if(!kickBusy_)checkKick();
     QTimer::singleShot(1700,this,[this]{if(!stopping_&&!youtubeBusy_)checkYouTube();});
+}
+void PlatformProbe::setKick(LivePlatform value){
+    if(value.confirmed&&value.phase==LivePhase::Live)lastKickId_=value.id;
+    if(value.phase==LivePhase::Offline)lastKickId_.clear();kick_=std::move(value);if(changed_)changed_();
+}
+void PlatformProbe::failKick(const QString& reason){
+    LivePlatform next=kick_;next.error=reason;next.checkedAt=QDateTime::currentDateTimeUtc();next.confirmed=false;
+    const QUrl manual(kickFallback_);
+    if(kickLocal_&&manual.scheme()=="https"&&(manual.host()=="kick.com"||manual.host()=="www.kick.com")&&manual.userInfo().isEmpty()&&!manual.hasQuery()&&manual.fragment().isEmpty()&&QRegularExpression("\\A/[a-zA-Z0-9_-]{1,100}/?\\z").match(manual.path()).hasMatch()){
+        next.phase=LivePhase::Live;next.url=manual.toString();next.id=lastKickId_.isEmpty()?kickManualId_:lastKickId_;
+    }else{next.phase=LivePhase::Error;next.url.clear();next.id.clear();}setKick(next);
+}
+void PlatformProbe::checkKick(){
+    if(stopping_||kickBusy_)return;if(!kickLocal_){setKick({});return;}
+    if(kickRetryAt_.isValid()&&QDateTime::currentDateTimeUtc()<kickRetryAt_)return;
+    QString channel;const QUrl manual(kickFallback_);
+    if(!kickFallback_.isEmpty()){
+        if(manual.scheme()!="https"||(manual.host()!="kick.com"&&manual.host()!="www.kick.com")||!manual.userInfo().isEmpty()||manual.hasQuery()||!manual.fragment().isEmpty()){failKick("Kick: check the channel link");return;}
+        channel=manual.path();if(channel.startsWith('/'))channel.remove(0,1);if(channel.endsWith('/'))channel.chop(1);
+    }else channel=chatKick_.load().value("channel").toString();
+    if(!QRegularExpression("\\A[a-zA-Z0-9_-]{1,100}\\z").match(channel).hasMatch()){failKick("Kick: enter a channel link or configure Stream Chat");return;}
+    kickBusy_=true;const auto expected=kickManualId_;
+    request(QUrl("https://kick.com/api/v2/channels/"+channel.toLower()),"GET",{},{},{},[this,channel,expected](int http,QJsonObject data){
+        kickBusy_=false;if(!kickLocal_||expected!=kickManualId_)return;
+        if(http!=200){if(http==403||http==429)kickRetryAt_=QDateTime::currentDateTimeUtc().addSecs(120);failKick(QString("Kick API HTTP %1").arg(http));return;}
+        kickRetryAt_={};
+        LivePlatform next;next.checkedAt=QDateTime::currentDateTimeUtc();const auto live=data.value("livestream").toObject();
+        if(live.value("is_live").toBool()){
+            next.id=live.value("id").toVariant().toString();if(next.id.isEmpty()){failKick("Kick: invalid stream response");return;}
+            next.phase=LivePhase::Live;next.confirmed=true;next.url="https://kick.com/"+channel.toLower();
+        }setKick(next);
+    });
 }
 void PlatformProbe::checkYouTube(){
     if(stopping_||youtubeBusy_)return;

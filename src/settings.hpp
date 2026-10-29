@@ -36,7 +36,8 @@ struct Settings {
     QString discordWebhook;
     QString youtubeUrl;
     QString twitchUrl;
-    QString message = QString::fromUtf8("🔴 НАЧАЛСЯ СТРИМ!\n\nСмотрите трансляцию:\n▶️ YouTube: {youtube}\n🎮 Twitch: {twitch}");
+    QString kickUrl;
+    QString message = QString::fromUtf8("🔴 НАЧАЛСЯ СТРИМ!\n\nСмотрите трансляцию:\n▶️ YouTube: {youtube}\n🎮 Twitch: {twitch}\n🟢 Kick: {kick}");
     bool secondAnnouncementEnabled = true;
     QString secondMessage = QString::fromUtf8("🔴 Мы теперь и на {platform}!\n\n🎬 Подключайтесь: {stream_url}");
     QMap<QString,QString> deliveryJournal;
@@ -87,5 +88,5 @@ bool validDiscord(const QString& url);
 bool validStreamUrl(const QString& url);
 QString prepareMessage(const Settings& s, QString* validationError = nullptr);
 QString renderAnnouncement(const QString& message,const QString& youtubeUrl,const QString& twitchUrl,
-                           const QString& platform=QString(),QString* validationError=nullptr);
+                           const QString& platform=QString(),QString* validationError=nullptr,const QString& kickUrl=QString());
 Snapshot makeSnapshot(const Settings& s, QString* error = nullptr);

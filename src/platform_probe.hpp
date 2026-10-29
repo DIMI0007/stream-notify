@@ -29,7 +29,7 @@ class PlatformProbe final : public QObject {
 public:
     explicit PlatformProbe(QObject* parent=nullptr);
     void setChanged(std::function<void()> callback){changed_=std::move(callback);}
-    void check(bool youtubeOutput,bool twitchOutput,const QString& youtubeFallback,const QString& twitchFallback);
+    void check(bool youtubeOutput,bool twitchOutput,const QString& youtubeFallback,const QString& twitchFallback,bool kickOutput=false,const QString& kickFallback=QString());
     void beginYouTubeLogin();
     void beginTwitchLogin();
     void signOutYouTube();
@@ -39,6 +39,7 @@ public:
     QString twitchDeviceCode()const{return twitchCode_;}
     LivePlatform youtube()const{return youtube_;}
     LivePlatform twitch()const{return twitch_;}
+    LivePlatform kick()const{return kick_;}
     void stop();
 private:
     using Response=std::function<void(int,QJsonObject)>;
@@ -46,6 +47,7 @@ private:
                  const QByteArray& bearer,const QByteArray& clientId,Response done);
     void checkYouTube();
     void checkTwitch();
+    void checkKick();void setKick(LivePlatform value);void failKick(const QString& reason);
     void refreshYouTube();
     void refreshTwitch();
     void validateTwitch();
@@ -64,9 +66,10 @@ private:
     QSet<QNetworkReply*> replies_;
     OAuthLoopback googleLogin_;
     QTimer twitchDeviceTimer_;
-    SecureStore ownYouTube_,ownTwitch_,chatYouTube_,chatTwitch_;
+    SecureStore ownYouTube_,ownTwitch_,chatYouTube_,chatTwitch_,chatKick_;
     QJsonObject youtubeToken_,twitchToken_;
-    LivePlatform youtube_,twitch_;
+    LivePlatform youtube_,twitch_,kick_;
+    QString kickFallback_,lastKickId_,kickManualId_;QDateTime kickRetryAt_;bool kickLocal_=false,kickBusy_=false;
     QString youtubeFallback_,twitchFallback_,twitchLogin_,twitchDevice_,twitchCode_,googleVerifier_;
     QString lastYouTubeId_,lastTwitchId_;
     QDateTime twitchDeviceExpires_;

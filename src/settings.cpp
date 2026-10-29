@@ -99,7 +99,10 @@ bool SettingsStore::load()
     current.telegramChat = str("telegram_chat", {});
     current.youtubeUrl = str("youtube_url", {});
     current.twitchUrl = str("twitch_url", {});
+    current.kickUrl = str("kick_url", {});
     current.message = str("message", current.message);
+    const QString oldDefault=QString::fromUtf8("🔴 НАЧАЛСЯ СТРИМ!\n\nСмотрите трансляцию:\n▶️ YouTube: {youtube}\n🎮 Twitch: {twitch}");
+    if(current.message==oldDefault)current.message+=QString::fromUtf8("\n🟢 Kick: {kick}");
     current.secondAnnouncementEnabled=flag("second_announcement_enabled",true);
     current.secondMessage=str("second_message",current.secondMessage);
     const QJsonObject journal=j.value("delivery_journal").toObject();
@@ -202,6 +205,7 @@ bool SettingsStore::save()
     j["discord_secret"] = QString::fromLatin1(d);
     j["youtube_url"] = current.youtubeUrl;
     j["twitch_url"] = current.twitchUrl;
+    j["kick_url"] = current.kickUrl;
     j["message"] = current.message;
     j["second_announcement_enabled"]=current.secondAnnouncementEnabled;
     j["second_message"]=current.secondMessage;
@@ -262,14 +266,14 @@ bool validStreamUrl(const QString& raw)
 }
 QString prepareMessage(const Settings& s, QString* error)
 {
-    return renderAnnouncement(s.message,s.youtubeUrl,s.twitchUrl,{},error);
+    return renderAnnouncement(s.message,s.youtubeUrl,s.twitchUrl,{},error,s.kickUrl);
 }
 QString renderAnnouncement(const QString& message,const QString& youtubeUrl,const QString& twitchUrl,
-                           const QString& platform,QString* error)
+                           const QString& platform,QString* error,const QString& kickUrl)
 {
     if(error)error->clear();
-    if (!validStreamUrl(youtubeUrl) || !validStreamUrl(twitchUrl)) {
-        if (error) *error = "Invalid YouTube or Twitch URL";
+    if (!validStreamUrl(youtubeUrl) || !validStreamUrl(twitchUrl) || !validStreamUrl(kickUrl)) {
+        if (error) *error = "Invalid YouTube, Twitch or Kick URL";
         return {};
     }
     QString body=message;
@@ -283,7 +287,10 @@ QString renderAnnouncement(const QString& message,const QString& youtubeUrl,cons
         for (const QString& line : body.split('\n')) if (!line.contains("{twitch}")&&!line.contains("{twitch_url}")) lines << line;
         body = lines.join('\n');
     } else body.replace("{twitch}",twitchUrl.trimmed()).replace("{twitch_url}",twitchUrl.trimmed());
-    QStringList urls;if(!youtubeUrl.trimmed().isEmpty())urls<<youtubeUrl.trimmed();if(!twitchUrl.trimmed().isEmpty())urls<<twitchUrl.trimmed();
+    if(kickUrl.trimmed().isEmpty()){
+        QStringList lines;for(const auto& line:body.split('\n'))if(!line.contains("{kick}")&&!line.contains("{kick_url}"))lines<<line;body=lines.join('\n');
+    }else body.replace("{kick}",kickUrl.trimmed()).replace("{kick_url}",kickUrl.trimmed());
+    QStringList urls;if(!youtubeUrl.trimmed().isEmpty())urls<<youtubeUrl.trimmed();if(!twitchUrl.trimmed().isEmpty())urls<<twitchUrl.trimmed();if(!kickUrl.trimmed().isEmpty())urls<<kickUrl.trimmed();
     body.replace("{stream_url}",urls.join("\n")).replace("{platform}",platform);
     static const QRegularExpression unknown("\\{[A-Za-z_][A-Za-z0-9_]*\\}");
     if (unknown.match(body).hasMatch()) { if (error) *error = "Unsupported template variable"; return {}; }

@@ -35,7 +35,7 @@ protected:
         QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
         if(stats_.historyCount<2)return;
         const QColor color=stats_.recentProblem?QColor("#ff737d"):
-            platform_=="YouTube"?QColor("#00df8c"):QColor("#ac69ff");
+            platform_=="Kick"?QColor("#80df50"):platform_=="YouTube"?QColor("#00df8c"):QColor("#ac69ff");
         float maximum=1.0f;
         for(unsigned i=0;i<stats_.historyCount;++i){
             const auto index=(stats_.historyNext+stats_.bitrateHistory.size()-stats_.historyCount+i)%stats_.bitrateHistory.size();

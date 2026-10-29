@@ -16,6 +16,7 @@ inline QString platformFor(const QString& name,const QString& service,const QStr
     if(host=="twitch.tv" || host.endsWith(".twitch.tv") || title.contains("twitch"))return "Twitch";
     if(host=="youtube.com" || host.endsWith(".youtube.com") || host=="youtube" ||
        title.contains("youtube"))return "YouTube";
+    if(host=="kick.com"||host.endsWith(".kick.com")||title.contains("kick"))return "Kick";
     return "RTMP";
 }
 class StreamMonitor {
