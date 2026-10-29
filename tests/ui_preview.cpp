@@ -14,6 +14,7 @@
 #include <QPixmap>
 #include <QLineEdit>
 #include <iostream>
+static int previewResult(int code){std::cerr<<"Notify UI result: "<<code<<"\n";return code;}
 struct DockPreview {
     static bool personalTwitchClient(StreamDock& panel){
         auto& probe=panel.platforms_;const auto previous=probe.twitchToken_;const bool fromChat=probe.twitchFromChat_;
@@ -195,7 +196,7 @@ int main(int argc,char** argv) {
     QApplication app(argc,argv);app.setStyle("Fusion");app.setFont(QFont("Segoe UI",9));
     for(const char* asset : {":/stream-notify/brands/donationalerts.png",":/stream-notify/brands/donatepay.png"}) {
         if(QPixmap(QString::fromLatin1(asset)).isNull()) {
-            std::cerr<<"Missing or invalid embedded service logo: "<<asset<<"\n";return 21;
+            std::cerr<<"Missing or invalid embedded service logo: "<<asset<<"\n";return previewResult(21);
         }
     }
     std::cout<<"Embedded DonationAlerts and DonatePay artwork decoded successfully\n";
@@ -204,7 +205,7 @@ int main(int argc,char** argv) {
     const int width=argc>2?QString::fromLocal8Bit(argv[2]).toInt():290;
     const int height=argc>3?QString::fromLocal8Bit(argv[3]).toInt():900;
     StreamDock panel;panel.resize(width,height);panel.show();pump();
-    if(panel.width()!=width){std::cerr<<"Unexpected dock width: "<<panel.width()<<" instead of "<<width<<"\n";return 62;}
+    if(panel.width()!=width){std::cerr<<"Unexpected dock width: "<<panel.width()<<" instead of "<<width<<"\n";return previewResult(62);}
     auto* headerBrand=panel.findChild<QWidget*>("HeaderBrand");
     auto* headerManual=panel.findChild<QPushButton*>("ManualMessageShortcut");
     auto* headerSettings=panel.findChild<QPushButton*>("SettingsShortcut");
@@ -220,8 +221,8 @@ int main(int argc,char** argv) {
     if(!headerBrand||!headerManual||!headerSettings||panel.layout()->spacing()!=5||
        headerBrand->size()!=QSize(28,28)||headerManual->size()!=QSize(30,28)||
        headerSettings->size()!=QSize(30,28)||headerSettings->iconSize()!=QSize(19,19)||
-       qAbs(headerBrand->y()-headerSettings->y())>3){std::cerr<<"Header geometry check failed\n";return 58;}
-    if(!DockPreview::ignoresSavedAnnouncementAtStartup(panel)){std::cerr<<"Stale announcement check failed\n";return 43;}
+       qAbs(headerBrand->y()-headerSettings->y())>3){std::cerr<<"Header geometry check failed\n";return previewResult(58);}
+    if(!DockPreview::ignoresSavedAnnouncementAtStartup(panel)){std::cerr<<"Stale announcement check failed\n";return previewResult(43);}
     auto click=[&](const QString& text) {
         for(auto* button:panel.findChildren<QPushButton*>())
             if(button->text().contains(text) && button->isEnabled()){button->click();pump();return true;}
@@ -237,19 +238,19 @@ int main(int argc,char** argv) {
         if(!saved)std::cerr<<"Cannot save preview "<<name.toStdString()<<"\n";
         return saved;
     };
-    if(!save("01-home"))return 1;
-    if(!DockPreview::confirmedLinks(panel))return 62;
-    if(!DockPreview::personalTwitchClient(panel))return 75;
-    if(sn::platformFor("Kick output","", "rtmps://example.global-contribute.live-video.net:443/app")!="Kick"||sn::platformFor("Other output","", "rtmps://example.global-contribute.live-video.net:443/app")!="RTMP")return 76;
+    if(!save("01-home"))return previewResult(1);
+    if(!DockPreview::confirmedLinks(panel))return previewResult(62);
+    if(!DockPreview::personalTwitchClient(panel))return previewResult(75);
+    if(sn::platformFor("Kick output","", "rtmps://example.global-contribute.live-video.net:443/app")!="Kick"||sn::platformFor("Other output","", "rtmps://example.global-contribute.live-video.net:443/app")!="RTMP")return previewResult(76);
     DockPreview::journalScene(panel);
-    if(!click(QString::fromUtf8("Журнал"))||!save("22-delivery-log"))return 57;
-    if(!click(QString::fromUtf8("Назад")))return 58;
-    if(!click(QString::fromUtf8("Просмотр анонса"))||!save("23-announcement-preview"))return 59;
+    if(!click(QString::fromUtf8("Журнал"))||!save("22-delivery-log"))return previewResult(57);
+    if(!click(QString::fromUtf8("Назад")))return previewResult(58);
+    if(!click(QString::fromUtf8("Просмотр анонса"))||!save("23-announcement-preview"))return previewResult(59);
     auto* confirmedPreview=panel.findChild<QTextEdit*>("ConfirmedAnnouncementText");
-    if(!confirmedPreview||confirmedPreview->toPlainText().isEmpty())return 60;
-    if(!click(QString::fromUtf8("Назад")))return 61;
+    if(!confirmedPreview||confirmedPreview->toPlainText().isEmpty())return previewResult(60);
+    if(!click(QString::fromUtf8("Назад")))return previewResult(61);
     auto* settingsShortcut=panel.findChild<QPushButton*>("SettingsShortcut");
-    if(!settingsShortcut)return 54;
+    if(!settingsShortcut)return previewResult(54);
     settingsShortcut->click();pump();
     bool foundConnect=false,foundMessage=false,foundInterface=false,foundDonations=false;
     for(auto* button:panel.findChildren<QPushButton*>()) {
@@ -258,51 +259,51 @@ int main(int argc,char** argv) {
         foundInterface|=button->text()==QString::fromUtf8("Интерфейс");
         foundDonations|=button->text()==QString::fromUtf8("Донаты");
     }
-    if(!foundConnect||!foundMessage||!foundInterface||!foundDonations)return 55;
+    if(!foundConnect||!foundMessage||!foundInterface||!foundDonations)return previewResult(55);
     settingsShortcut=panel.findChild<QPushButton*>("SettingsShortcut");
     settingsShortcut->click();pump();
-    if(panel.findChild<QPushButton*>("SettingsShortcut")==nullptr)return 56;
+    if(panel.findChild<QPushButton*>("SettingsShortcut")==nullptr)return previewResult(56);
     const QSize homeSize=panel.size();
     auto* manualShortcut=panel.findChild<QPushButton*>("ManualMessageShortcut");
-    if(!manualShortcut)return 44;
+    if(!manualShortcut)return previewResult(44);
     manualShortcut->click();pump();
     auto* manualEditor=panel.findChild<QTextEdit*>("ManualMessageEditor");
     if(!manualEditor || !panel.findChild<QCheckBox*>("ManualTelegram") ||
        !panel.findChild<QCheckBox*>("ManualDiscord") ||
-       !panel.findChild<QCheckBox*>("ManualEveryone") || panel.size()!=homeSize)return 45;
-    if(!save("18-manual-message"))return 49;
+       !panel.findChild<QCheckBox*>("ManualEveryone") || panel.size()!=homeSize)return previewResult(45);
+    if(!save("18-manual-message"))return previewResult(49);
     manualEditor->setPlainText(QString::fromUtf8("Анонс и ссылка: https://example.com"));pump();
     auto* manualBack=panel.findChild<QPushButton*>("ManualMessageBack");
-    if(!manualBack)return 46;
+    if(!manualBack)return previewResult(46);
     manualBack->click();pump();
     manualShortcut=panel.findChild<QPushButton*>("ManualMessageShortcut");
-    if(!manualShortcut)return 47;
+    if(!manualShortcut)return previewResult(47);
     manualShortcut->click();pump();
     manualEditor=panel.findChild<QTextEdit*>("ManualMessageEditor");
-    if(!manualEditor || !manualEditor->toPlainText().contains("https://example.com"))return 48;
+    if(!manualEditor || !manualEditor->toPlainText().contains("https://example.com"))return previewResult(48);
     manualBack=panel.findChild<QPushButton*>("ManualMessageBack");manualBack->click();pump();
     // Home offers channel setup; stream URLs remain editable in Connections.
-    if(!click(QString::fromUtf8("Настроить")) || !save("02-connections"))return 31;
+    if(!click(QString::fromUtf8("Настроить")) || !save("02-connections"))return previewResult(31);
     if(!panel.findChild<QLineEdit*>("TelegramToken") ||
-       !panel.findChild<QLineEdit*>("YouTubeUrl") || !panel.findChild<QLineEdit*>("TwitchUrl")||!panel.findChild<QLineEdit*>("KickUrl"))return 32;
-    if(panel.findChild<QWidget*>("PluginResources") || panel.findChild<QWidget*>("OutputMonitor"))return 42;
-    if(!click(QString::fromUtf8("Сообщение")) || !save("03-message"))return 1;
-    if(!click(QString::fromUtf8("Интерфейс")) || !click(QString("English")))return 1;
-    if(!click(QString::fromUtf8("Русский")) || !save("04-interface"))return 1;
+       !panel.findChild<QLineEdit*>("YouTubeUrl") || !panel.findChild<QLineEdit*>("TwitchUrl")||!panel.findChild<QLineEdit*>("KickUrl"))return previewResult(32);
+    if(panel.findChild<QWidget*>("PluginResources") || panel.findChild<QWidget*>("OutputMonitor"))return previewResult(42);
+    if(!click(QString::fromUtf8("Сообщение")) || !save("03-message"))return previewResult(1);
+    if(!click(QString::fromUtf8("Интерфейс")) || !click(QString("English")))return previewResult(1);
+    if(!click(QString::fromUtf8("Русский")) || !save("04-interface"))return previewResult(1);
     // Exercise the input-event rebuild path that previously crashed OBS.
     for(int i=0;i<2;++i) {
         bool found=false;
         for(auto* toggle:panel.findChildren<QCheckBox*>())
             if(toggle->text().contains(QString::fromUtf8("Компактный"))){toggle->click();found=true;break;}
-        pump();if(!found)return 1;
+        pump();if(!found)return previewResult(1);
     }
-    if(!click(QString::fromUtf8("Донаты")) || !save("05-donations"))return 1;
-    if(!click(QString::fromUtf8("Связь")) || !save("06-connections-return"))return 1;
-    if(!click(QString::fromUtf8("Донаты")))return 1;
+    if(!click(QString::fromUtf8("Донаты")) || !save("05-donations"))return previewResult(1);
+    if(!click(QString::fromUtf8("Связь")) || !save("06-connections-return"))return previewResult(1);
+    if(!click(QString::fromUtf8("Донаты")))return previewResult(1);
     const auto serviceScene=DockPreview::connectedServices(panel);pump();
-    if(!save("20-services-connected"))return 60;
+    if(!save("20-services-connected"))return previewResult(60);
     DockPreview::deliveredHome(panel);pump();
-    if(!save("21-home-delivered"))return 61;
+    if(!save("21-home-delivered"))return previewResult(61);
     DockPreview::restoreServices(panel,serviceScene);pump();
     const QSize dockSize=panel.size();
     auto donationTab=[&](int section) {
@@ -312,54 +313,54 @@ int main(int argc,char** argv) {
         }
         return false;
     };
-    if(!donationTab(1)||!save("10-donations-send"))return 10;
-    if(!donationTab(2)||!save("11-donations-amounts"))return 11;
+    if(!donationTab(1)||!save("10-donations-send"))return previewResult(10);
+    if(!donationTab(2)||!save("11-donations-amounts"))return previewResult(11);
     const auto amounts=panel.findChildren<QDoubleSpinBox*>();
-    if(amounts.size()!=3)return 12;
+    if(amounts.size()!=3)return previewResult(12);
     amounts[0]->setValue(99);pump();
-    if(!donationTab(3))return 13;
+    if(!donationTab(3))return previewResult(13);
     bool correctPreview=false;
     for(auto* label:panel.findChildren<QLabel*>())
         if(label->text().contains("99 RUB"))correctPreview=true;
-    if(!correctPreview)return 14;
+    if(!correctPreview)return previewResult(14);
     auto* editor=panel.findChild<QTextEdit*>();
-    if(!editor)return 15;
+    if(!editor)return previewResult(15);
     const QString original=editor->toPlainText();
     editor->setPlainText(original+" UI-PERSIST-CHECK");pump();
-    if(!donationTab(0)||!donationTab(3))return 16;
+    if(!donationTab(0)||!donationTab(3))return previewResult(16);
     editor=panel.findChild<QTextEdit*>();
-    if(!editor||!editor->toPlainText().endsWith(" UI-PERSIST-CHECK"))return 17;
+    if(!editor||!editor->toPlainText().endsWith(" UI-PERSIST-CHECK"))return previewResult(17);
     editor->setPlainText(original);
-    if(!donationTab(2))return 18;
+    if(!donationTab(2))return previewResult(18);
     const auto restoredAmounts=panel.findChildren<QDoubleSpinBox*>();
-    if(restoredAmounts.isEmpty()||restoredAmounts[0]->value()!=99)return 19;
+    if(restoredAmounts.isEmpty()||restoredAmounts[0]->value()!=99)return previewResult(19);
     restoredAmounts[0]->setValue(100);
-    if(!donationTab(3)||!save("12-donations-text"))return 20;
+    if(!donationTab(3)||!save("12-donations-text"))return previewResult(20);
     std::cout<<"Donation subtabs: stable dock size, edited amounts and template persistence passed\\n";
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
-    if(!save("07-donations-bottom"))return 1;
-    if(!DockPreview::donationIdleStates(panel))return 33;
+    if(!save("07-donations-bottom"))return previewResult(1);
+    if(!DockPreview::donationIdleStates(panel))return previewResult(33);
     const Settings originalSettings=DockPreview::demoConnections(panel);pump();
     manualShortcut=panel.findChild<QPushButton*>("ManualMessageShortcut");
-    if(!manualShortcut)return 50;
+    if(!manualShortcut)return previewResult(50);
     manualShortcut->click();pump();
     auto* mention=panel.findChild<QCheckBox*>("ManualEveryone");
-    if(!mention || !mention->isEnabled())return 51;
+    if(!mention || !mention->isEnabled())return previewResult(51);
     mention->setChecked(true);pump();
-    if(!save("19-manual-ready"))return 52;
+    if(!save("19-manual-ready"))return previewResult(52);
     manualBack=panel.findChild<QPushButton*>("ManualMessageBack");
-    if(!manualBack)return 53;
+    if(!manualBack)return previewResult(53);
     manualBack->click();pump();
     QList<QPointer<QTimer>> readyTimers;
     for(auto* timer:panel.findChildren<QTimer*>())
         if(timer->objectName()=="ReadyBlinkTimer")readyTimers.append(timer);
-    if(readyTimers.size()!=2)return 34;
-    for(const auto& timer:readyTimers)if(!timer || !timer->isActive() || timer->interval()!=2770)return 35;
-    if(!save("15-home-ready"))return 1;
-    panel.hide();pump();for(const auto& timer:readyTimers)if(timer->isActive())return 36;
-    panel.show();pump();for(const auto& timer:readyTimers)if(!timer->isActive())return 37;
+    if(readyTimers.size()!=2)return previewResult(34);
+    for(const auto& timer:readyTimers)if(!timer || !timer->isActive() || timer->interval()!=2770)return previewResult(35);
+    if(!save("15-home-ready"))return previewResult(1);
+    panel.hide();pump();for(const auto& timer:readyTimers)if(timer->isActive())return previewResult(36);
+    panel.show();pump();for(const auto& timer:readyTimers)if(!timer->isActive())return previewResult(37);
     DockPreview::restoreSettings(panel,originalSettings);pump();
-    for(const auto& timer:readyTimers)if(timer)return 38;
+    for(const auto& timer:readyTimers)if(timer)return previewResult(38);
     std::cout<<"Setup links, donation idle reasons and visible-only ready indicators passed\\n";
     std::cerr<<"Starting monitor stage\n";
     const Settings monitorSettings=DockPreview::demoConnections(panel);pump();
@@ -368,7 +369,7 @@ int main(int argc,char** argv) {
     std::cerr<<"Monitor UI pumped\n";
     std::cerr<<"Monitor widgets: output="<<(panel.findChild<QWidget*>("OutputMonitor")!=nullptr)
         <<" resources="<<(panel.findChild<QWidget*>("PluginResources")!=nullptr)<<"\n";
-    if(!panel.findChild<QWidget*>("OutputMonitor") || panel.findChild<QWidget*>("PluginResources"))return 40;
+    if(!panel.findChild<QWidget*>("OutputMonitor") || panel.findChild<QWidget*>("PluginResources"))return previewResult(40);
     const auto outputs=DockPreview::outputViews(panel);
     std::cerr<<"Monitor views: "<<outputs.size()<<"\n";
     if(outputs.size()!=3 || outputs[0].stats.recentProblem || !outputs[1].stats.recentProblem||outputs[2].platform!="Kick"||outputs[2].stats.recentProblem){
@@ -376,55 +377,55 @@ int main(int argc,char** argv) {
         for(const auto& output:outputs)
             std::cerr<<output.platform.toStdString()<<" bytes="<<output.stats.bytes
                 <<" recentProblem="<<output.stats.recentProblem<<"\n";
-        return 41;
+        return previewResult(41);
     }
-    if(!save("16-monitoring-home"))return 1;
+    if(!save("16-monitoring-home"))return previewResult(1);
     for(auto* scroll:panel.findChildren<QScrollArea*>())scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
-    if(!save("17-monitoring-bottom"))return 1;
+    if(!save("17-monitoring-bottom"))return previewResult(1);
     const bool retained=DockPreview::retainStoppedOutputs(panel);
     std::cerr<<"Stopped output histories retained="<<retained<<"\n";
-    if(!retained)return 54;
+    if(!retained)return previewResult(54);
     DockPreview::stopMonitorDemo(panel);pump();
     DockPreview::restoreSettings(panel,monitorSettings);pump();
-    DockPreview::countdown(panel);if(!save("08-countdown"))return 1;
+    DockPreview::countdown(panel);if(!save("08-countdown"))return previewResult(1);
     QPointer<QTimer> pulse=panel.findChild<QTimer*>("CountdownPulseTimer");
-    if(!pulse || pulse->isActive())return 22; // No animation outside the final ten seconds.
+    if(!pulse || pulse->isActive())return previewResult(22); // No animation outside the final ten seconds.
     DockPreview::countdown(panel,10);pump();
     pulse=panel.findChild<QTimer*>("CountdownPulseTimer");
-    if(!pulse || !pulse->isActive())return 23;
+    if(!pulse || !pulse->isActive())return previewResult(23);
     const QSize pulseSize=panel.size();
-    if(!save("13-countdown-last10"))return 1;
+    if(!save("13-countdown-last10"))return previewResult(1);
     const QImage beforePulse=panel.grab().toImage();
     for(int i=0;i<7;++i)pump();
     const QImage afterPulse=panel.grab().toImage();
-    if(beforePulse==afterPulse || panel.size()!=pulseSize)return 24;
-    if(!save("14-countdown-pulse"))return 1;
-    panel.hide();pump();if(pulse->isActive())return 25;
-    panel.show();pump();if(!pulse->isActive())return 26;
-    DockPreview::result(panel);if(!save("09-result"))return 1;
-    if(pulse)return 27; // The ring and its timer must be destroyed on phase change.
+    if(beforePulse==afterPulse || panel.size()!=pulseSize)return previewResult(24);
+    if(!save("14-countdown-pulse"))return previewResult(1);
+    panel.hide();pump();if(pulse->isActive())return previewResult(25);
+    panel.show();pump();if(!pulse->isActive())return previewResult(26);
+    DockPreview::result(panel);if(!save("09-result"))return previewResult(1);
+    if(pulse)return previewResult(27); // The ring and its timer must be destroyed on phase change.
     std::cout<<"Countdown pulse: final-ten-seconds only, visible frames, stable layout, hide/resume and disposal passed\\n";
     streamPreviewOutputs={{false,true}}; // Recording must not announce.
-    panel.refreshStreamingState();pump();if(DockPreview::live(panel))return 2;
+    panel.refreshStreamingState();pump();if(DockPreview::live(panel))return previewResult(2);
     const auto before=DockPreview::session(panel);
     streamPreviewOutputs.push_back({true,true}); // First Aitum destination.
     panel.refreshStreamingState();pump();
-    if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+1)return 3;
+    if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+1)return previewResult(3);
     streamPreviewOutputs.push_back({true,true}); // Second Aitum destination.
     panel.refreshStreamingState();pump();
-    if(DockPreview::session(panel)!=before+1)return 4;
+    if(DockPreview::session(panel)!=before+1)return previewResult(4);
     streamPreviewOutputs[1].active=false;
-    panel.refreshStreamingState();pump();if(!DockPreview::live(panel))return 5;
+    panel.refreshStreamingState();pump();if(!DockPreview::live(panel))return previewResult(5);
     streamPreviewOutputs[2].active=false;
-    panel.refreshStreamingState();pump();if(DockPreview::live(panel))return 6;
+    panel.refreshStreamingState();pump();if(DockPreview::live(panel))return previewResult(6);
     streamPreviewOutputs[1].active=true;
     panel.refreshStreamingState();pump();
-    if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+2)return 7;
+    if(!DockPreview::live(panel)||DockPreview::session(panel)!=before+2)return previewResult(7);
     streamPreviewOutputs.clear();panel.refreshStreamingState();pump();
     std::cout<<"Multistream aggregate start, deduplication, last-stop and restart tests passed\\n";
     for(int i=0;i<12;++i){
         DockPreview::rebuild(panel);pump();
-        if(!DockPreview::singleFooter(panel))return 44;
+        if(!DockPreview::singleFooter(panel))return previewResult(44);
     }
     std::cout<<"Footer survives repeated dock rebuilds without duplicate labels\n";
     panel.shutdown();

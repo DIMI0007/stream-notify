@@ -93,3 +93,13 @@ jobs:
           path: package/
           if-no-files-found: error
 
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: StreamNotify-UI-Diagnostics
+          path: |
+            ui-previews/**/*.png
+            ui-previews/*.png
+            build_x64/RelWithDebInfo/stream-notify-ui-preview.exe
+          if-no-files-found: warn
