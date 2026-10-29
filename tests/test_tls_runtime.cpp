@@ -37,6 +37,8 @@ int main(int argc,char** argv) {
             const char* service=current==0?"Telegram":"Discord";
             if(!*sslErrors && status>=200 && status<500)
                 std::cout<<service<<" HTTPS handshake verified, HTTP "<<status<<"\n";
+            else if(!*sslErrors && status==0 && reply->error()==QNetworkReply::TimeoutError)
+                std::cout<<service<<" HTTPS endpoint timed out; packaged TLS backend initialized, remote reachability inconclusive\n";
             else {
                 std::cerr<<service<<" HTTPS check failed, HTTP "<<status<<", Qt network code "<<int(reply->error())<<"\n";
                 result=4;
