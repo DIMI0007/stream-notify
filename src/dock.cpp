@@ -844,7 +844,10 @@ void StreamDock::sendManualMessage()
             const bool ok=result.status==Outcome::Sent;
             if(!ok)manualAllSent_=false;
             const QString status=ok?uiText("✓ Отправлено","✓ Sent"):
-                uiText("⚠ Не подтверждено: ","⚠ Unconfirmed: ")+result.detail;
+                result.status==Outcome::Unknown?
+                    uiText("⚠ Доставка не подтверждена. Сообщение могло дойти — проверьте сервис. Автоматического повтора нет.",
+                           "⚠ Delivery unconfirmed. The message may have arrived — check the service. No automatic retry."):
+                    uiText("⚠ Не отправлено: ","⚠ Not sent: ")+result.detail;
             if(channel==Channel::Telegram)manualTelegramStatus_=status;
             else manualDiscordStatus_=status;
             store_.addEvent(QString(channel==Channel::Telegram?"MANUAL_TELEGRAM ":"MANUAL_DISCORD ")+

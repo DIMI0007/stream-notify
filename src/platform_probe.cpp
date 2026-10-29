@@ -98,6 +98,10 @@ QString PlatformProbe::googleSecret()const{
     return data.value("client_id").toString()==googleClient?data.value("client_secret").toString():QString();
 #endif
 }
+QString PlatformProbe::twitchApiClient()const{
+    const auto personal=twitchToken_.value("client_id").toString();
+    return twitchFromChat_&&!personal.isEmpty()?personal:twitchClient;
+}
 QString PlatformProbe::youtubeAccount()const{
     if(!available(youtubeToken_))return "YouTube: connect account";
     return youtubeFromChat_?"YouTube: Stream Chat account":"YouTube: Stream Notify account";
@@ -199,7 +203,7 @@ void PlatformProbe::checkTwitch(){
     twitchBusy_=true;
     if(!twitch_.confirmed){LivePlatform starting=twitch_;starting.phase=LivePhase::Starting;setTwitch(starting);}
     QUrl url("https://api.twitch.tv/helix/streams");QUrlQuery q;q.addQueryItem("user_login",twitchLogin_);url.setQuery(q);
-    request(url,"GET",{},("Bearer "+twitchToken_.value("access_token").toString()).toUtf8(),twitchClient.toUtf8(),
+    request(url,"GET",{},("Bearer "+twitchToken_.value("access_token").toString()).toUtf8(),twitchApiClient().toUtf8(),
         [this](int http,QJsonObject data){
             twitchBusy_=false;
             if(http==401){refreshTwitch();return;}
@@ -221,7 +225,7 @@ void PlatformProbe::validateTwitch(){
         [this](int http,QJsonObject data){
             twitchBusy_=false;
             if(http==401){refreshTwitch();return;}
-            if(http!=200||data.value("client_id").toString()!=twitchClient){failTwitch(QString("Twitch authorization failed (HTTP %1)").arg(http));return;}
+            if(http!=200||data.value("client_id").toString()!=twitchApiClient()){failTwitch(QString("Twitch authorization failed (HTTP %1)").arg(http));return;}
             twitchLogin_=data.value("login").toString().toLower();
             if(twitchLogin_.isEmpty()){failTwitch("Twitch account login unavailable");return;}
             checkTwitch();

@@ -15,6 +15,14 @@
 #include <QLineEdit>
 #include <iostream>
 struct DockPreview {
+    static bool personalTwitchClient(StreamDock& panel){
+        auto& probe=panel.platforms_;const auto previous=probe.twitchToken_;const bool fromChat=probe.twitchFromChat_;
+        probe.twitchFromChat_=true;probe.twitchToken_=QJsonObject{{"client_id","personal-twitch-test"}};
+        bool valid=probe.twitchApiClient()=="personal-twitch-test";
+        probe.twitchFromChat_=false;valid=valid&&probe.twitchApiClient()!="personal-twitch-test";
+        probe.twitchFromChat_=true;probe.twitchToken_={};valid=valid&&!probe.twitchApiClient().isEmpty();
+        probe.twitchToken_=previous;probe.twitchFromChat_=fromChat;return valid;
+    }
     static void journalScene(StreamDock& panel){
         const auto time=QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")+"  ";
         panel.store_.current.events.prepend(time+"MAIN_TELEGRAM: SENT | Confirmed");
@@ -228,6 +236,7 @@ int main(int argc,char** argv) {
     };
     if(!save("01-home"))return 1;
     if(!DockPreview::confirmedLinks(panel))return 62;
+    if(!DockPreview::personalTwitchClient(panel))return 75;
     DockPreview::journalScene(panel);
     if(!click(QString::fromUtf8("Журнал"))||!save("22-delivery-log"))return 57;
     if(!click(QString::fromUtf8("Назад")))return 58;

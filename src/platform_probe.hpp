@@ -55,6 +55,7 @@ private:
     void failTwitch(const QString& reason);
     void loadAccounts();
     QString googleSecret()const;
+    QString twitchApiClient()const;
     QString accountPath(const QString& name,bool chat)const;
     void saveOwnYouTube(const QJsonObject& value);
     void saveOwnTwitch(const QJsonObject& value);
