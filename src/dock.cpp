@@ -1638,6 +1638,7 @@ void StreamDock::streamStarted()
     donation_.setLive(true);
     // One notification session spans all concurrently active streaming outputs.
     if(alreadyHandled_) {rebuild();return;}
+    platforms_.beginOutputSession();
     alreadyHandled_ = true;
     announcementAttempted_=false;telegram_={};discord_={};
     mainDelivered_=false;mainIds_.clear();secondPending_.clear();mainTemplate_=store_.current.message;

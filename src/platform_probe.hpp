@@ -41,6 +41,7 @@ public:
     LivePlatform twitch()const{return twitch_;}
     LivePlatform kick()const{return kick_;}
     void stop();
+    void beginOutputSession(){kickLocal_=false;kick_={};kickManualId_.clear();lastKickId_.clear();kickRetryAt_={};}
 private:
     using Response=std::function<void(int,QJsonObject)>;
     void request(const QUrl& url,const QByteArray& method,const QByteArray& body,

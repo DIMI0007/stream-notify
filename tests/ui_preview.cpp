@@ -24,6 +24,10 @@ struct DockPreview {
         probe.twitchFromChat_=true;probe.twitchToken_={};valid=valid&&!probe.twitchApiClient().isEmpty();
         probe.twitchToken_=previous;probe.twitchFromChat_=fromChat;return valid;
     }
+    static bool freshKickSession(StreamDock& panel){
+        auto& probe=panel.platforms_;probe.kickLocal_=true;probe.kickManualId_="manual:kick:old";probe.lastKickId_="old-id";
+        probe.beginOutputSession();return !probe.kickLocal_&&probe.kickManualId_.isEmpty()&&probe.lastKickId_.isEmpty()&&probe.kick().phase==sn::LivePhase::Offline;
+    }
     static void journalScene(StreamDock& panel){
         const auto time=QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss")+"  ";
         panel.store_.current.events.prepend(time+"MAIN_TELEGRAM: SENT | Confirmed");
@@ -241,6 +245,7 @@ int main(int argc,char** argv) {
     if(!save("01-home"))return previewResult(1);
     if(!DockPreview::confirmedLinks(panel))return previewResult(62);
     if(!DockPreview::personalTwitchClient(panel))return previewResult(75);
+    if(!DockPreview::freshKickSession(panel))return previewResult(77);
     if(sn::platformFor("Kick output","", "rtmps://example.global-contribute.live-video.net:443/app")!="Kick"||sn::platformFor("Other output","", "rtmps://example.global-contribute.live-video.net:443/app")!="RTMP")return previewResult(76);
     DockPreview::journalScene(panel);
     if(!click(QString::fromUtf8("Журнал"))||!save("22-delivery-log"))return previewResult(57);
